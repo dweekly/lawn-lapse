@@ -1,0 +1,69 @@
+# Environment variables
+.env
+.env.local
+.env.*.local
+*.env
+
+# Authentication cookies (NEVER commit these!)
+*cookies*.json
+*token*.txt
+*auth*.txt
+*ubic*.txt
+
+# Output directories
+snapshots/
+exports/
+backup/
+
+# Generated videos (except the latest timelapse)
+*.mp4
+*.avi
+*.mov
+!timelapse_*.mp4
+
+# Images
+*.jpg
+*.jpeg
+*.png
+
+# Logs
+logs/
+*.log
+
+# Node modules
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+
+# OS files
+.DS_Store
+Thumbs.db
+Desktop.ini
+*.swp
+*.swo
+*~
+
+# IDE files
+.vscode/
+.idea/
+*.sublime-*
+*.code-workspace
+
+# Temporary files
+*.tmp
+*.temp
+temp/
+tmp/
+filelist.txt
+
+# Test files
+test-*.jpg
+test-*.mp4
+
+# Claude artifacts
+.claude/
+
+# Git
+.git/
