@@ -6,7 +6,7 @@
   "scripts": {
     "capture": "node capture-and-timelapse.js",
     "setup": "node setup.js",
-    "update-cookies": "node update-cookies.js",
+    "update-credentials": "node update-credentials.js",
     "status": "node status.js"
   },
   "dependencies": {

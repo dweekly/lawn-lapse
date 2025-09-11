@@ -8,7 +8,7 @@ Automated time-lapse generator for UniFi Protect cameras. Captures daily snapsho
 - 🔄 **Historical Backfill** - Fetches up to 39 days of historical footage from UniFi Protect
 - 🎬 **Automatic Time-lapse Generation** - Creates MP4 videos from collected snapshots
 - 💾 **Permanent Archive** - Stores snapshots locally forever (beyond NVR retention limits)
-- 🔐 **Cookie-based Authentication** - Works with UniFi Protect's web interface
+- 🔐 **Cookie Authentication** - Uses browser cookies for secure access
 - ⏰ **Cron Integration** - Runs automatically on macOS via cron jobs
 - 📊 **Status Monitoring** - Check system health and snapshot collection progress
 
@@ -18,7 +18,7 @@ Automated time-lapse generator for UniFi Protect cameras. Captures daily snapsho
 - **Node.js 14+** installed
 - **ffmpeg** installed (`brew install ffmpeg` on macOS)
 - **UniFi Protect** system with camera access
-- Browser access to UniFi Protect for cookie extraction
+- Access to UniFi Protect web interface
 
 ## Quick Start
 
@@ -43,26 +43,28 @@ node setup.js
 
 The setup wizard will:
 - Ask for your UniFi Protect host/IP address
-- Guide you through cookie extraction from your browser
+- Guide you through extracting authentication cookies from your browser
 - Test the connection and list available cameras
 - Let you select which camera to use
 - Configure your preferred capture time (default: noon)
 - Optionally install a cron job for automatic daily captures
 
-### 3. Getting Authentication Cookies
+### 3. Authentication
 
-During setup, you'll need to extract cookies from your browser:
+The setup wizard will guide you through obtaining authentication cookies from your browser:
 
-1. Open UniFi Protect in your web browser
-2. Log in to your account
-3. Open Developer Tools:
-   - Chrome/Edge: Press `F12` or `Cmd+Option+I`
-   - Safari: Enable Developer menu in Preferences, then `Cmd+Option+I`
-4. Navigate to **Application** tab → **Storage** → **Cookies**
-5. Find and copy these two cookie values:
-   - `TOKEN` - A long JWT token starting with "eyJ..."
-   - `UBIC_AUTH` - An encoded authentication string
-6. Paste these values when prompted during setup
+1. **Log into UniFi Protect** in your web browser
+2. **Open Developer Tools** (F12 or Cmd+Option+I)
+3. **Navigate to Application/Storage → Cookies**
+4. **Find your UniFi host's cookies**
+5. **Copy the TOKEN and UBIC_AUTH cookie values**
+
+These cookies provide secure access to the video export API.
+
+**Important Notes**:
+- Cookies expire after ~30 days and need to be refreshed
+- Authentication data is stored in `.env.local` (gitignored)
+- Run `node update-cookies.js` when cookies expire
 
 ### 4. Verify Installation
 
@@ -91,7 +93,7 @@ node capture-and-timelapse.js
 # Check system status
 node status.js
 
-# Update expired cookies (every ~30 days)
+# Update cookies when they expire (~30 days)
 node update-cookies.js
 
 # The capture script automatically handles both:
@@ -116,15 +118,18 @@ grep "Error\|Failed" logs/capture.log
 
 ## Cookie Management
 
-UniFi Protect cookies expire after approximately 30 days. When they expire:
+Cookies expire after approximately 30 days. When they expire:
 
-1. Get new cookies from your browser (same process as initial setup)
-2. Update them using:
+1. Run the update script:
    ```bash
    node update-cookies.js
    ```
-3. Follow the prompts to enter new TOKEN and UBIC_AUTH values
-4. The script will validate the new cookies automatically
+2. Follow the prompts to extract new cookies from your browser:
+   - Log into UniFi Protect web interface
+   - Open Developer Tools (F12)
+   - Go to Application/Storage → Cookies
+   - Copy TOKEN and UBIC_AUTH values
+3. The script will validate the cookies automatically
 
 ## Time-lapse Generation
 
@@ -159,7 +164,7 @@ Plan your storage accordingly for long-term projects.
 lawn-lapse/
 ├── capture-and-timelapse.js  # Main script (captures & creates video)
 ├── setup.js                  # Interactive setup wizard
-├── update-cookies.js         # Cookie refresh utility
+├── update-cookies.js         # Cookie update utility
 ├── status.js                 # System status checker
 ├── setup-daily-cron.sh       # Cron installation script
 ├── snapshots/                # Captured images (gitignored)
@@ -169,8 +174,9 @@ lawn-lapse/
 
 ## Troubleshooting
 
-### Cookies Expired
+### Authentication Failed
 ```bash
+# Cookies may have expired - refresh them
 node update-cookies.js
 ```
 
@@ -236,7 +242,8 @@ ffmpeg -framerate 60 -pattern_type glob -i 'snapshots/*.jpg' -c:v libx264 output
 ## Security Notes
 
 - **Never commit credentials** - All authentication data is stored in `.env.local` (gitignored)
-- **Cookies are temporary** - They expire after ~30 days, limiting exposure
+- **Cookies stored locally** - Authentication cookies are stored in `.env.local`
+- **Cookie expiration** - Cookies expire after ~30 days and need refreshing
 - **Local network only** - Designed for LAN access to UniFi Protect
 - **Read-only access** - Only fetches video, doesn't modify camera settings
 
