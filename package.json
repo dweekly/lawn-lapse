@@ -1,0 +1,16 @@
+{
+  "name": "lawn-lapse",
+  "version": "1.0.0",
+  "description": "Capture daily snapshots from UniFi Protect camera and create time-lapse videos",
+  "type": "module",
+  "scripts": {
+    "capture": "node capture-and-timelapse.js",
+    "setup": "node setup.js",
+    "update-cookies": "node update-cookies.js",
+    "status": "node status.js"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "node-fetch": "^3.3.2"
+  }
+}
