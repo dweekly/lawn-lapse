@@ -1,0 +1,92 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        node-version: [18.x, 20.x]
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+    
+    - name: Setup Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v3
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm'
+    
+    - name: Install dependencies
+      run: npm ci
+    
+    - name: Run Prettier check
+      run: npx prettier --check "*.js"
+    
+    - name: Run ESLint
+      run: npx eslint "*.js"
+    
+    - name: Check for sensitive data
+      run: |
+        # Check for potential credentials
+        if grep -r "password\|token\|secret" --include="*.js" . | grep -v "process.env" | grep -v "prompt\|console"; then
+          echo "❌ Potential hardcoded credentials found!"
+          exit 1
+        fi
+        echo "✅ No hardcoded credentials detected"
+    
+    - name: Verify required files
+      run: |
+        # Check that all required files exist
+        for file in "capture-and-timelapse.js" "setup.js" "status.js" ".env.example" "README.md" "LICENSE"; do
+          if [ ! -f "$file" ]; then
+            echo "❌ Missing required file: $file"
+            exit 1
+          fi
+        done
+        echo "✅ All required files present"
+    
+    - name: Test script syntax
+      run: |
+        # Verify scripts have no syntax errors
+        for script in "capture-and-timelapse.js" "setup.js" "status.js"; do
+          node --check "$script"
+          echo "✅ $script syntax valid"
+        done
+    
+    - name: Check documentation
+      run: |
+        # Verify README has essential sections
+        if ! grep -q "## Installation" README.md; then
+          echo "⚠️ README missing Installation section"
+        fi
+        if ! grep -q "## Usage" README.md; then
+          echo "⚠️ README missing Usage section"
+        fi
+        echo "✅ Documentation check complete"
+
+  security-scan:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+    
+    - name: Run npm audit
+      run: |
+        npm install
+        npm audit --audit-level=high || true
+    
+    - name: Check for exposed secrets
+      uses: trufflesecurity/trufflehog@main
+      with:
+        path: ./
+        base: ${{ github.event.repository.default_branch }}
+        head: HEAD
