@@ -6,7 +6,8 @@
   "scripts": {
     "capture": "node capture-and-timelapse.js",
     "setup": "node setup.js",
-    "status": "node status.js"
+    "status": "node status.js",
+    "test": "echo \"No tests configured\" && exit 0"
   },
   "dependencies": {
     "dotenv": "^17.2.2",
