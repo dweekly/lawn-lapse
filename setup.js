@@ -2,8 +2,7 @@
 
 import readline from 'readline';
 import fs from 'fs/promises';
-import fetch from 'node-fetch';
-import https from 'https';
+import { ProtectApi } from 'unifi-protect';
 import { execSync } from 'child_process';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -20,39 +19,25 @@ function prompt(question) {
   return new Promise((resolve) => rl.question(question, resolve));
 }
 
-async function testConnection(host, token, ubicAuth) {
+async function testConnection(host, username, password) {
   try {
-    const baseUrl = `https://${host.replace(/^https?:\/\//, '')}`;
-    const cookies = `TOKEN=${token}; UBIC_AUTH=${ubicAuth}`;
-    const agent = new https.Agent({ rejectUnauthorized: false });
+    const protect = new ProtectApi();
 
-    // Extract CSRF token from JWT
-    let csrfToken = null;
-    try {
-      const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString());
-      csrfToken = payload.csrfToken;
+    // Try to login
+    const success = await protect.login(host, username, password);
 
-      // Check expiration
-      const expiry = new Date(payload.exp * 1000);
-      const daysLeft = Math.floor((expiry - new Date()) / (1000 * 60 * 60 * 24));
-      console.log(`  Cookie expires: ${expiry.toLocaleDateString()} (${daysLeft} days remaining)`);
-    } catch {}
-
-    const response = await fetch(`${baseUrl}/proxy/protect/api/cameras`, {
-      headers: {
-        Cookie: cookies,
-        'X-CSRF-Token': csrfToken || '',
-      },
-      agent,
-      timeout: 10000,
-    });
-
-    if (!response.ok) {
-      throw new Error(`Connection failed: ${response.status}`);
+    if (!success) {
+      throw new Error('Authentication failed');
     }
 
-    const cameras = await response.json();
-    return cameras;
+    // Get bootstrap to fetch cameras
+    const bootstrap = await protect.getBootstrap();
+
+    if (!bootstrap || !bootstrap.cameras) {
+      throw new Error('Could not fetch camera list');
+    }
+
+    return bootstrap.cameras;
   } catch (error) {
     throw new Error(`Connection test failed: ${error.message}`);
   }
@@ -68,33 +53,27 @@ async function main() {
   console.log('-'.repeat(30));
   const host = await prompt('Enter your UniFi Protect host/IP (e.g., 192.168.1.1): ');
 
-  // Step 2: Authentication Cookies
-  console.log('\nStep 2: Authentication Cookies');
+  // Step 2: Authentication
+  console.log('\nStep 2: Authentication');
   console.log('-'.repeat(30));
-  console.log('\nTo get your cookies:');
-  console.log('1. Open UniFi Protect in your browser');
-  console.log('2. Log in to your account');
-  console.log('3. Open Developer Tools (F12 or Cmd+Option+I)');
-  console.log('4. Go to Application/Storage → Cookies');
-  console.log('5. Find the cookie for your UniFi host');
-  console.log('6. Look for these two cookies:');
-  console.log('   - TOKEN (starts with "eyJ...")');
-  console.log('   - UBIC_AUTH (long encoded string)');
-  console.log('\nCopy the VALUE of each cookie (not the name)\n');
+  console.log('\nEnter your UniFi Protect login credentials.');
+  console.log(
+    'These are the same credentials you use to log into the UniFi Protect web interface.\n',
+  );
 
-  const token = await prompt('Enter your TOKEN cookie value: ');
-  const ubicAuth = await prompt('Enter your UBIC_AUTH cookie value: ');
+  const username = (await prompt('Username (default: admin): ')) || 'admin';
+  const password = await prompt('Password: ');
 
   // Test connection and get cameras
   console.log('\nTesting connection...');
   let cameras;
   try {
-    cameras = await testConnection(host, token, ubicAuth);
+    cameras = await testConnection(host, username, password);
     console.log(`✓ Connected successfully! Found ${cameras.length} camera(s)\n`);
   } catch (error) {
     console.error(`✗ ${error.message}`);
-    console.error('\nPlease check your cookies and try again.');
-    console.error('Make sure you copied the full cookie value.');
+    console.error('\nPlease check your username and password.');
+    console.error('Make sure you have the correct credentials.');
     process.exit(1);
   }
 
@@ -138,8 +117,8 @@ async function main() {
   // Create configuration
   const config = `# UniFi Protect Configuration
 UNIFI_HOST=${host}
-UNIFI_TOKEN=${token}
-UBIC_AUTH=${ubicAuth}
+UNIFI_USERNAME=${username}
+UNIFI_PASSWORD=${password}
 CAMERA_ID=${selectedCamera.id}
 CAMERA_NAME=${selectedCamera.name}
 OUTPUT_DIR=${outputDir}
@@ -208,11 +187,11 @@ CAPTURE_MINUTE=${minute}
   console.log('\nUseful commands:');
   console.log('  node capture-and-timelapse.js  # Run manual capture');
   console.log('  node status.js                  # Check system status');
-  console.log('  node update-cookies.js          # Update expired cookies');
+  console.log('  # Note: Edit .env.local to update password if changed');
 
-  console.log('\n⚠️  Important: Cookies expire after ~30 days');
-  console.log("You'll need to update them when they expire.");
-  console.log('Run "node update-cookies.js" to refresh them.');
+  console.log('\n⚠️  Security Note:');
+  console.log('Your password is stored in .env.local');
+  console.log('Keep this file secure and never commit it to git.');
 
   rl.close();
 }

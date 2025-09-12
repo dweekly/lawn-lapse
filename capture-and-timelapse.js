@@ -1,18 +1,11 @@
 #!/usr/bin/env node
 
 /**
- * UniFi Protect Lawn Lapse - Capture and Timelapse Generator
- *
- * This script:
- * 1. Fetches all available snapshots at a specific time of day (up to 39 days back)
- * 2. Extracts frames from video clips at the exact time
- * 3. Generates a timelapse video from all collected snapshots
- *
- * Run via cron job daily for automatic capture and video generation.
+ * UniFi Protect Lawn Lapse - Using unifi-protect library
+ * This version uses username/password instead of cookies
  */
 
-import fetch from 'node-fetch';
-import https from 'https';
+import { ProtectApi } from 'unifi-protect';
 import fs from 'fs/promises';
 import { spawn } from 'child_process';
 import path from 'path';
@@ -22,47 +15,57 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Load configuration from .env.local
 dotenv.config({ path: path.join(__dirname, '.env.local') });
 
-class UniFiVideoExportClient {
-  constructor(host, token, ubicAuth) {
-    this.host = host.replace(/^https?:\/\//, '');
-    this.baseUrl = `https://${this.host}`;
-    this.token = token;
-    this.ubicAuth = ubicAuth;
+class UniFiProtectClient {
+  constructor() {
+    this.protect = new ProtectApi();
+    this.host = process.env.UNIFI_HOST;
+    this.username = process.env.UNIFI_USERNAME || 'admin';
+    this.password = process.env.UNIFI_PASSWORD;
+    this.isConnected = false;
+  }
 
-    try {
-      const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString());
-      this.csrfToken = payload.csrfToken;
-    } catch {
-      this.csrfToken = null;
+  async connect() {
+    if (this.isConnected) return true;
+
+    console.log(`Connecting to ${this.host}...`);
+    const success = await this.protect.login(this.host, this.username, this.password);
+
+    if (!success) {
+      throw new Error('Failed to login to UniFi Protect');
     }
 
-    this.cookies = `TOKEN=${this.token}; UBIC_AUTH=${this.ubicAuth}`;
-    this.agent = new https.Agent({ rejectUnauthorized: false });
+    this.isConnected = true;
+    console.log('✓ Connected to UniFi Protect');
+    return true;
   }
 
   async exportVideo(cameraId, startMs, durationMs = 5000) {
-    const endMs = startMs + durationMs;
-    const url = `${this.baseUrl}/proxy/protect/api/video/export?camera=${cameraId}&start=${startMs}&end=${endMs}`;
+    await this.connect();
 
-    const response = await fetch(url, {
+    const endMs = startMs + durationMs;
+    // IMPORTANT: Use full URL with host for the library to work
+    const url = `https://${this.host}/proxy/protect/api/video/export?camera=${cameraId}&start=${startMs}&end=${endMs}`;
+
+    const response = await this.protect.retrieve(url, {
+      method: 'GET',
       headers: {
-        Cookie: this.cookies,
-        'X-CSRF-Token': this.csrfToken || '',
         Accept: 'video/mp4',
       },
-      agent: this.agent,
-      timeout: 60000,
     });
 
-    if (!response.ok) {
-      throw new Error(`Video export failed: ${response.status}`);
+    if (!response || !response.body) {
+      throw new Error('No video data received');
     }
 
-    const buffer = await response.arrayBuffer();
-    return Buffer.from(buffer);
+    // Read the stream into a buffer
+    const chunks = [];
+    for await (const chunk of response.body) {
+      chunks.push(chunk);
+    }
+
+    return Buffer.concat(chunks);
   }
 
   async extractFrameFromVideo(videoBuffer, outputPath) {
@@ -111,13 +114,10 @@ async function fetchMissingSnapshots() {
   const now = new Date();
   console.log(`[${now.toISOString()}] Starting snapshot capture...`);
 
-  // Get cookies from environment
-  const TOKEN = process.env.UNIFI_TOKEN;
-  const UBIC_AUTH = process.env.UBIC_AUTH;
-
-  if (!TOKEN || !UBIC_AUTH) {
-    console.error('Error: Missing authentication cookies.');
-    console.error('Please run: node setup.js');
+  // Check for required credentials
+  if (!process.env.UNIFI_PASSWORD) {
+    console.error('Error: Missing UNIFI_PASSWORD in .env.local');
+    console.error('Please add your UniFi Protect password to .env.local');
     process.exit(1);
   }
 
@@ -125,7 +125,7 @@ async function fetchMissingSnapshots() {
   const captureHour = parseInt(process.env.CAPTURE_HOUR || '12');
   const captureMinute = parseInt(process.env.CAPTURE_MINUTE || '0');
 
-  const client = new UniFiVideoExportClient(process.env.UNIFI_HOST, TOKEN, UBIC_AUTH);
+  const client = new UniFiProtectClient();
   const cameraId = process.env.CAMERA_ID;
   const outputDir = process.env.OUTPUT_DIR || './snapshots';
 
@@ -168,7 +168,7 @@ async function fetchMissingSnapshots() {
   }
 
   if (missingDates.length === 0) {
-    console.log('✓ All noon snapshots up to date!');
+    console.log('✓ All snapshots up to date!');
   } else {
     console.log(`Found ${missingDates.length} missing snapshots. Fetching...`);
 
