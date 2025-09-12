@@ -6,11 +6,11 @@
   "scripts": {
     "capture": "node capture-and-timelapse.js",
     "setup": "node setup.js",
-    "update-credentials": "node update-credentials.js",
     "status": "node status.js"
   },
   "dependencies": {
     "dotenv": "^16.4.5",
-    "node-fetch": "^3.3.2"
+    "node-fetch": "^3.3.2",
+    "unifi-protect": "^4.27.2"
   }
 }

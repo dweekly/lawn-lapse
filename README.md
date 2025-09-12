@@ -8,7 +8,7 @@ Automated time-lapse generator for UniFi Protect cameras. Captures daily snapsho
 - 🔄 **Historical Backfill** - Fetches up to 39 days of historical footage from UniFi Protect
 - 🎬 **Automatic Time-lapse Generation** - Creates MP4 videos from collected snapshots
 - 💾 **Permanent Archive** - Stores snapshots locally forever (beyond NVR retention limits)
-- 🔐 **Cookie Authentication** - Uses browser cookies for secure access
+- 🔐 **Simple Authentication** - Uses username/password for easy setup
 - ⏰ **Cron Integration** - Runs automatically on macOS via cron jobs
 - 📊 **Status Monitoring** - Check system health and snapshot collection progress
 
@@ -43,7 +43,7 @@ node setup.js
 
 The setup wizard will:
 - Ask for your UniFi Protect host/IP address
-- Guide you through extracting authentication cookies from your browser
+- Request your UniFi Protect username and password
 - Test the connection and list available cameras
 - Let you select which camera to use
 - Configure your preferred capture time (default: noon)
@@ -51,20 +51,14 @@ The setup wizard will:
 
 ### 3. Authentication
 
-The setup wizard will guide you through obtaining authentication cookies from your browser:
+The setup wizard will ask for your UniFi Protect credentials:
 
-1. **Log into UniFi Protect** in your web browser
-2. **Open Developer Tools** (F12 or Cmd+Option+I)
-3. **Navigate to Application/Storage → Cookies**
-4. **Find your UniFi host's cookies**
-5. **Copy the TOKEN and UBIC_AUTH cookie values**
+- **Username**: Your UniFi Protect username (often 'admin')
+- **Password**: Your UniFi Protect password
 
-These cookies provide secure access to the video export API.
+These are the same credentials you use to log into the UniFi Protect web interface.
 
-**Important Notes**:
-- Cookies expire after ~30 days and need to be refreshed
-- Authentication data is stored in `.env.local` (gitignored)
-- Run `node update-cookies.js` when cookies expire
+**Security Note**: Your credentials are stored locally in `.env.local` which is gitignored and never leaves your computer.
 
 ### 4. Verify Installation
 
@@ -93,8 +87,8 @@ node capture-and-timelapse.js
 # Check system status
 node status.js
 
-# Update cookies when they expire (~30 days)
-node update-cookies.js
+# If you change your password, update .env.local
+# Then run capture to test
 
 # The capture script automatically handles both:
 # - Backfilling up to 39 days of historical snapshots
@@ -116,20 +110,16 @@ grep "$(date +%Y-%m-%d)" logs/capture.log
 grep "Error\|Failed" logs/capture.log
 ```
 
-## Cookie Management
+## Password Management
 
-Cookies expire after approximately 30 days. When they expire:
+If you change your UniFi Protect password:
 
-1. Run the update script:
+1. Edit `.env.local` and update the `UNIFI_PASSWORD` field
+2. Test the connection:
    ```bash
-   node update-cookies.js
+   node capture-and-timelapse.js
    ```
-2. Follow the prompts to extract new cookies from your browser:
-   - Log into UniFi Protect web interface
-   - Open Developer Tools (F12)
-   - Go to Application/Storage → Cookies
-   - Copy TOKEN and UBIC_AUTH values
-3. The script will validate the cookies automatically
+3. The script will verify the credentials automatically
 
 ## Time-lapse Generation
 
@@ -164,7 +154,6 @@ Plan your storage accordingly for long-term projects.
 lawn-lapse/
 ├── capture-and-timelapse.js  # Main script (captures & creates video)
 ├── setup.js                  # Interactive setup wizard
-├── update-cookies.js         # Cookie update utility
 ├── status.js                 # System status checker
 ├── setup-daily-cron.sh       # Cron installation script
 ├── snapshots/                # Captured images (gitignored)
@@ -176,8 +165,8 @@ lawn-lapse/
 
 ### Authentication Failed
 ```bash
-# Cookies may have expired - refresh them
-node update-cookies.js
+# Check your credentials in .env.local
+# Make sure username and password are correct
 ```
 
 ### Cron Job Not Running
@@ -242,8 +231,7 @@ ffmpeg -framerate 60 -pattern_type glob -i 'snapshots/*.jpg' -c:v libx264 output
 ## Security Notes
 
 - **Never commit credentials** - All authentication data is stored in `.env.local` (gitignored)
-- **Cookies stored locally** - Authentication cookies are stored in `.env.local`
-- **Cookie expiration** - Cookies expire after ~30 days and need refreshing
+- **Password stored locally** - Your password is stored in plain text in `.env.local`
 - **Local network only** - Designed for LAN access to UniFi Protect
 - **Read-only access** - Only fetches video, doesn't modify camera settings
 
