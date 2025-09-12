@@ -1,0 +1,38 @@
+version: 2
+updates:
+  # Enable version updates for npm
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 10
+    reviewers:
+      - "dweekly"
+    assignees:
+      - "dweekly"
+    commit-message:
+      prefix: "npm"
+      include: "scope"
+    labels:
+      - "dependencies"
+      - "npm"
+    # Group all non-major updates into a single PR
+    groups:
+      non-major:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+
+  # Enable security updates for GitHub Actions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "ci"
+    labels:
+      - "dependencies"
+      - "github-actions"

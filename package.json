@@ -9,8 +9,11 @@
     "status": "node status.js"
   },
   "dependencies": {
-    "dotenv": "^16.4.5",
+    "dotenv": "^17.2.2",
     "node-fetch": "^3.3.2",
     "unifi-protect": "^4.27.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   }
 }

@@ -88,9 +88,9 @@ async function checkStatus() {
   console.log('\n⏰ Cron Job:');
   try {
     const crontab = execSync('crontab -l 2>/dev/null || echo ""', { encoding: 'utf-8' });
-    if (crontab.includes('daily-noon-update.js')) {
-      crontab.split('\n').find((line) => line.includes('daily-noon-update.js'));
-      console.log('  ✓ Active: Runs daily at 2:00 PM');
+    if (crontab.includes('capture-and-timelapse.js')) {
+      crontab.split('\n').find((line) => line.includes('capture-and-timelapse.js'));
+      console.log('  ✓ Active: Cron job is configured');
 
       // Check last run from log
       const logPath = path.join(__dirname, 'logs', 'daily-update.log');
@@ -111,42 +111,30 @@ async function checkStatus() {
       }
     } else {
       console.log('  ✗ Not configured');
-      console.log('  Run: ./setup-daily-cron.sh');
+      console.log('  Run: ./setup-daily-cron.sh to set up automatic daily capture');
     }
   } catch {
     console.log('  Unable to check cron status');
   }
 
-  // Check cookies
+  // Check authentication
   console.log('\n🔐 Authentication:');
-  const scriptPath = path.join(__dirname, 'daily-noon-update.js');
+  const envPath = path.join(__dirname, '.env.local');
   try {
-    const content = await fs.readFile(scriptPath, 'utf-8');
-    const tokenMatch = content.match(/const TOKEN = process\.env\.UNIFI_TOKEN \|\| '([^']+)'/);
-
-    if (tokenMatch) {
-      const token = tokenMatch[1];
-      // Decode JWT to check expiration
-      try {
-        const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString());
-        const expDate = new Date(payload.exp * 1000);
-        const daysLeft = Math.floor((expDate - Date.now()) / (1000 * 60 * 60 * 24));
-
-        if (daysLeft > 0) {
-          console.log(`  ✓ Cookies valid for ${daysLeft} more days`);
-          console.log(`  Expires: ${expDate.toLocaleDateString()}`);
-        } else {
-          console.log('  ⚠️  Cookies expired!');
-          console.log('  Run: node update-cookies.js "<TOKEN>" "<UBIC_AUTH>"');
-        }
-      } catch {
-        console.log('  Cookies configured (unable to check expiration)');
-      }
+    const envContent = await fs.readFile(envPath, 'utf-8');
+    const hasUsername = envContent.includes('UNIFI_USERNAME=');
+    const hasPassword = envContent.includes('UNIFI_PASSWORD=');
+    
+    if (hasUsername && hasPassword) {
+      console.log('  ✓ Credentials configured');
+      console.log('  Using username/password authentication');
     } else {
-      console.log('  ✗ No cookies configured');
+      console.log('  ✗ Missing credentials');
+      console.log('  Run: node setup.js to configure');
     }
   } catch {
-    console.log('  Unable to check cookie status');
+    console.log('  ✗ No .env.local file found');
+    console.log('  Run: node setup.js to configure');
   }
 
   // Quick summary
@@ -160,10 +148,10 @@ async function checkStatus() {
 
   if (snapshotCount > 0) {
     console.log(`  ✓ System operational with ${snapshotCount} days of footage`);
-    console.log('  💡 Tip: Run "npm run timelapse" to create a new video');
+    console.log('  💡 Tip: Run "npm run capture" to update snapshots and create video');
   } else {
     console.log('  ⚠️  No snapshots captured yet');
-    console.log('  💡 Tip: Run "node daily-noon-update.js" to start capturing');
+    console.log('  💡 Tip: Run "npm run capture" to start capturing');
   }
 }
 

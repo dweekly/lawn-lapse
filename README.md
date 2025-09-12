@@ -1,5 +1,11 @@
 # UniFi Protect Lawn Lapse
 
+[![CI](https://github.com/dweekly/lawn-lapse/actions/workflows/ci.yml/badge.svg)](https://github.com/dweekly/lawn-lapse/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/dweekly/lawn-lapse/actions/workflows/codeql.yml/badge.svg)](https://github.com/dweekly/lawn-lapse/actions/workflows/codeql.yml)
+[![Security Scan](https://github.com/dweekly/lawn-lapse/actions/workflows/security.yml/badge.svg)](https://github.com/dweekly/lawn-lapse/actions/workflows/security.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Node Version](https://img.shields.io/node/v/lawn-lapse)](https://nodejs.org)
+
 Automated time-lapse generator for UniFi Protect cameras. Captures daily snapshots at your chosen time and creates beautiful time-lapse videos showing changes over days, months, or years.
 
 ## Features
