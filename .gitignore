@@ -15,11 +15,10 @@ snapshots/
 exports/
 backup/
 
-# Generated videos (except the latest timelapse)
+# Generated videos (don't commit any videos)
 *.mp4
 *.avi
 *.mov
-!timelapse_*.mp4
 
 # Images
 *.jpg
