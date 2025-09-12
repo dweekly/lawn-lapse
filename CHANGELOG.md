@@ -7,6 +7,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.0] - 2025-01-12
+
+### Initial Public Release
+
+This is the first public release of UniFi Protect Lawn Lapse after refactoring for open source.
+
+### Added
+- Username/password authentication using `unifi-protect` library
+- Interactive setup wizard (`setup.js`)
+- System status checker (`status.js`)
+- Comprehensive documentation (README, CONTRIBUTING, SECURITY)
+- GitHub issue and PR templates
+- Dependabot configuration for automated updates
+- Security policy and guidelines
+- Code of Conduct
+
+### Changed
+- Migrated from hardcoded cookie authentication to environment-based credentials
+- Simplified authentication flow - no browser cookie extraction needed
+- Improved error handling and user feedback
+- Restructured code for better maintainability
+
+### Security
+- Removed all hardcoded credentials
+- Added `.gitignore` rules for sensitive files
+- Implemented secure credential storage in `.env.local`
+
+### Technical
+- Updated to dotenv v17.2.2
+- Node.js 18+ requirement
+- ES modules support
+- Clean separation of configuration and code
+
 ## [2.0.0] - 2025-09-12
 
 ### Changed
@@ -51,6 +84,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Gap detection in snapshot sequences
 - Cookie expiration tracking
 
-[Unreleased]: https://github.com/dweekly/lawn-lapse/compare/v2.0.0...HEAD
-[2.0.0]: https://github.com/dweekly/lawn-lapse/compare/v1.0.0...v2.0.0
-[1.0.0]: https://github.com/dweekly/lawn-lapse/releases/tag/v1.0.0
+[Unreleased]: https://github.com/dweekly/lawn-lapse/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/dweekly/lawn-lapse/releases/tag/v0.1.0

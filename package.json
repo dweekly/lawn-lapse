@@ -1,6 +1,6 @@
 {
   "name": "lawn-lapse",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "description": "Capture daily snapshots from UniFi Protect camera and create time-lapse videos",
   "type": "module",
   "scripts": {
