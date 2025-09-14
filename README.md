@@ -1,16 +1,17 @@
 <div align="center">
   <img src="logo.png" alt="Lawn Lapse Logo" width="200" height="200">
 
-  # 🌱 Lawn Lapse
+# 🌱 Lawn Lapse
 
-  [![npm version](https://badge.fury.io/js/lawn-lapse.svg)](https://www.npmjs.com/package/lawn-lapse)
-  [![CI](https://github.com/dweekly/lawn-lapse/actions/workflows/ci.yml/badge.svg)](https://github.com/dweekly/lawn-lapse/actions/workflows/ci.yml)
-  [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-  [![Node Version](https://img.shields.io/node/v/lawn-lapse)](https://nodejs.org)
+[![npm version](https://badge.fury.io/js/lawn-lapse.svg)](https://www.npmjs.com/package/lawn-lapse)
+[![CI](https://github.com/dweekly/lawn-lapse/actions/workflows/ci.yml/badge.svg)](https://github.com/dweekly/lawn-lapse/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Node Version](https://img.shields.io/node/v/lawn-lapse)](https://nodejs.org)
 
-  **Automated time-lapse generator for UniFi Protect cameras**
+**Automated time-lapse generator for UniFi Protect cameras**
 
-  Captures daily snapshots at your chosen time and creates beautiful time-lapse videos showing changes over days, months, or years.
+Captures daily snapshots at your chosen time and creates beautiful time-lapse videos showing changes over days, months, or years.
+
 </div>
 
 ## 🎬 Demo
@@ -46,6 +47,7 @@ npx lawn-lapse
 ```
 
 This will:
+
 1. Guide you through setup on first run
 2. Fetch historical snapshots
 3. Generate your first time-lapse video
@@ -83,17 +85,18 @@ lawn [command]
 ```
 
 When run without arguments:
+
 - **First run**: Automatically starts interactive setup
 - **Subsequent runs**: Captures snapshots and updates time-lapse
 
 ### Commands
 
-| Command | Description |
-|---------|-------------|
-| `lawn` | Run capture (auto-setup if first time) |
-| `lawn status` | Show configuration and statistics |
-| `lawn cron` | Set up or update automated daily captures |
-| `lawn help` | Display help information |
+| Command       | Description                               |
+| ------------- | ----------------------------------------- |
+| `lawn`        | Run capture (auto-setup if first time)    |
+| `lawn status` | Show configuration and statistics         |
+| `lawn cron`   | Set up or update automated daily captures |
+| `lawn help`   | Display help information                  |
 
 ### Verbose Mode
 
@@ -187,6 +190,7 @@ lawn status
 ```
 
 Shows:
+
 - Total snapshots collected
 - Date range of footage
 - Gap detection in sequence
@@ -224,13 +228,13 @@ Shows:
 
 ### Common Issues
 
-| Problem | Solution |
-|---------|----------|
-| "No cameras found" | Ensure UniFi Protect is accessible and user has admin privileges |
-| "Authentication failed" | Check username/password, ensure 2FA is disabled for API access |
-| Timeout errors | Reduce video duration or check network connectivity |
-| Missing snapshots | Verify camera was online and recording at capture time |
-| Cron not running | Check cron service is enabled: `sudo launchctl load -w /System/Library/LaunchDaemons/com.vix.cron.plist` |
+| Problem                 | Solution                                                                                                 |
+| ----------------------- | -------------------------------------------------------------------------------------------------------- |
+| "No cameras found"      | Ensure UniFi Protect is accessible and user has admin privileges                                         |
+| "Authentication failed" | Check username/password, ensure 2FA is disabled for API access                                           |
+| Timeout errors          | Reduce video duration or check network connectivity                                                      |
+| Missing snapshots       | Verify camera was online and recording at capture time                                                   |
+| Cron not running        | Check cron service is enabled: `sudo launchctl load -w /System/Library/LaunchDaemons/com.vix.cron.plist` |
 
 ### Debug Mode
 
@@ -279,7 +283,7 @@ npm run lint
 The project exports several key functions for programmatic use:
 
 ```javascript
-import { runSetup, runCapture } from './lawn-lapse.js';
+import { runSetup, runCapture } from "./lawn-lapse.js";
 
 // Run interactive setup
 await runSetup();
