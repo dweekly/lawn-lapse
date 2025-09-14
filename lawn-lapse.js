@@ -732,8 +732,10 @@ Subsequent runs will capture a snapshot and update the time-lapse video.
   }
 }
 
-// Run main function
-main();
+// Only run main function if this is the entry point
+if (import.meta.url === `file://${process.argv[1]}`) {
+  main();
+}
 
 // Export functions for programmatic use
 export { runSetup, runCapture, runStatus, loadExistingConfig, saveConfig };

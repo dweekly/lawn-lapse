@@ -510,5 +510,7 @@ async function main() {
   }
 }
 
-// Run main function
-main();
+// Only run main function if this is the entry point
+if (import.meta.url === `file://${process.argv[1]}`) {
+  main();
+}
