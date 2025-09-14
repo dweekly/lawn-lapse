@@ -1,8 +1,11 @@
 #!/usr/bin/env node
 
 /**
- * UniFi Protect Lawn Lapse - Using unifi-protect library
- * This version uses username/password instead of cookies
+ * @file capture-and-timelapse.js
+ * @description Captures snapshots from UniFi Protect cameras and generates time-lapse videos
+ * Handles historical backfill, daily captures, and video generation with smart resolution detection
+ * @author Lawn Lapse Contributors
+ * @license MIT
  */
 
 import { ProtectApi } from "unifi-protect";
@@ -15,7 +18,7 @@ import { fileURLToPath } from "url";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Suppress dotenv messages
+// Suppress promotional messages from dotenv
 process.env.SUPPRESS_NO_CONFIG_WARNING = "true";
 const originalLog = console.log;
 console.log = (...args) => {
@@ -25,11 +28,20 @@ console.log = (...args) => {
 dotenv.config({ path: path.join(__dirname, ".env.local"), silent: true });
 console.log = originalLog;
 
-// Check for verbose flag
+// Check for verbose flag for detailed output
 const isVerbose =
   process.argv.includes("-v") || process.argv.includes("--verbose");
 
+/**
+ * UniFi Protect client wrapper
+ * Handles authentication and video/snapshot retrieval
+ * @class
+ */
 class UniFiProtectClient {
+  /**
+   * Creates a new UniFi Protect client instance
+   * @constructor
+   */
   constructor() {
     this.protect = new ProtectApi();
     this.host = process.env.UNIFI_HOST;
@@ -38,7 +50,15 @@ class UniFiProtectClient {
     this.isConnected = false;
   }
 
+  /**
+   * Connects to UniFi Protect controller
+   * Caches connection to avoid repeated authentication
+   * @async
+   * @returns {Promise<boolean>} True if connection successful
+   * @throws {Error} If login fails
+   */
   async connect() {
+    // Skip if already connected
     if (this.isConnected) return true;
 
     const success = await this.protect.login(
@@ -56,11 +76,21 @@ class UniFiProtectClient {
     return true;
   }
 
+  /**
+   * Exports video from UniFi Protect for a specific time range
+   * Uses the video export API to get a small video clip
+   * @async
+   * @param {string} cameraId - Camera ID to export from
+   * @param {number} startMs - Start timestamp in milliseconds
+   * @param {number} [durationMs=1000] - Duration in milliseconds (default 1 second)
+   * @returns {Promise<Buffer>} Video data as buffer
+   * @throws {Error} If no video data received
+   */
   async exportVideo(cameraId, startMs, durationMs = 1000) {
     await this.connect();
 
     const endMs = startMs + durationMs;
-    // IMPORTANT: Use full URL with host for the library to work
+    // Build full URL - required for the library to work correctly
     const url = `https://${this.host}/proxy/protect/api/video/export?camera=${cameraId}&start=${startMs}&end=${endMs}`;
 
     const response = await this.protect.retrieve(url, {
@@ -83,6 +113,15 @@ class UniFiProtectClient {
     return Buffer.concat(chunks);
   }
 
+  /**
+   * Extracts a single frame from video buffer
+   * Uses ffmpeg to extract the first frame as a JPEG
+   * @async
+   * @param {Buffer} videoBuffer - Video data buffer
+   * @param {string} outputPath - Path to save the extracted frame
+   * @returns {Promise<void>}
+   * @throws {Error} If ffmpeg fails
+   */
   async extractFrameFromVideo(videoBuffer, outputPath) {
     return new Promise((resolve, reject) => {
       const tempVideoPath = `${outputPath}.temp.mp4`;
@@ -95,20 +134,21 @@ class UniFiProtectClient {
               "-i",
               tempVideoPath,
               "-ss",
-              "00:00:00",
+              "00:00:00", // Extract frame at start
               "-frames:v",
-              "1",
+              "1", // Extract only 1 frame
               "-q:v",
-              "2",
-              "-y",
+              "2", // High quality JPEG
+              "-y", // Overwrite output
               outputPath,
             ],
             {
-              stdio: isVerbose ? "inherit" : "pipe",
+              stdio: isVerbose ? "inherit" : "pipe", // Show output only in verbose mode
             },
           );
 
           ffmpeg.on("exit", (code) => {
+            // Clean up temp file
             fs.unlink(tempVideoPath)
               .then(() => {
                 if (code !== 0) {
@@ -121,6 +161,7 @@ class UniFiProtectClient {
           });
 
           ffmpeg.on("error", (err) => {
+            // Attempt to clean up on error
             fs.unlink(tempVideoPath).catch(() => {});
             reject(err);
           });
@@ -130,19 +171,29 @@ class UniFiProtectClient {
   }
 }
 
+/**
+ * Fetches missing snapshots from UniFi Protect
+ * Checks for gaps in snapshot collection and backfills from video recordings
+ * @async
+ * @returns {Promise<Object>} Object containing capture statistics and configuration
+ * @returns {number} returns.capturedCount - Number of new snapshots captured
+ * @returns {string} returns.outputDir - Output directory path
+ * @returns {number} returns.captureHour - Hour of capture time
+ * @returns {number} returns.captureMinute - Minute of capture time
+ */
 async function fetchMissingSnapshots() {
   const now = new Date();
 
   console.log(`[${now.toISOString()}] Starting snapshot capture...`);
 
-  // Check for required credentials
+  // Validate required credentials
   if (!process.env.UNIFI_PASSWORD) {
     console.error("Error: Missing UNIFI_PASSWORD in .env.local");
     console.error("Please add your UniFi Protect password to .env.local");
     process.exit(1);
   }
 
-  // Get capture time configuration
+  // Parse capture time configuration
   const snapshotTime = process.env.SNAPSHOT_TIME || "12:00";
   const [captureHour, captureMinute] = snapshotTime
     .split(":")
@@ -153,13 +204,14 @@ async function fetchMissingSnapshots() {
   const cameraName = process.env.CAMERA_NAME || "Unknown Camera";
   const outputDir = process.env.OUTPUT_DIR || "./snapshots";
 
-  // Display camera info
+  // Display camera information
   console.log(`Camera: ${cameraName} (${cameraId})`);
   console.log(`Snapshot time: ${snapshotTime}`);
 
+  // Ensure output directory exists
   await fs.mkdir(outputDir, { recursive: true });
 
-  // Check for missing snapshots in the last 39 days (max retention)
+  // Check for missing snapshots in the last 39 days (UniFi Protect retention limit)
   const maxDays = 39;
   let capturedCount = 0;
   let skippedCount = 0;
@@ -170,6 +222,7 @@ async function fetchMissingSnapshots() {
     `Checking for missing ${captureHour}:${String(captureMinute).padStart(2, "0")} snapshots (last ${maxDays} days)...`,
   );
 
+  // Scan backwards through time to find missing snapshots
   for (let dayOffset = 0; dayOffset < maxDays; dayOffset++) {
     const targetDate = new Date();
     targetDate.setDate(targetDate.getDate() - dayOffset);
@@ -180,17 +233,18 @@ async function fetchMissingSnapshots() {
       continue;
     }
 
+    // Build filename using consistent format: YYYY-MM-DD_HHMM.jpg
     const dateStr = targetDate.toISOString().split("T")[0];
     const timeStr = `${String(captureHour).padStart(2, "0")}${String(captureMinute).padStart(2, "0")}`;
     const filename = `${dateStr}_${timeStr}.jpg`;
     const outputPath = path.join(outputDir, filename);
 
-    // Check if file already exists
+    // Check if snapshot already exists
     try {
       await fs.access(outputPath);
       skippedCount++;
     } catch {
-      // File doesn't exist - add to missing list
+      // File doesn't exist - add to missing list for backfill
       missingDates.push({ date: targetDate, dateStr, filename, outputPath });
     }
   }
@@ -202,9 +256,10 @@ async function fetchMissingSnapshots() {
       `Found ${missingDates.length} missing snapshots. Fetching...\n`,
     );
 
-    // Show initial connection message
+    // Track if we've shown the connection message
     let showedConnection = false;
 
+    // Process each missing snapshot with progress indicator
     for (let i = 0; i < missingDates.length; i++) {
       const missing = missingDates[i];
       const progress = `[${i + 1}/${missingDates.length}]`;
@@ -217,15 +272,17 @@ async function fetchMissingSnapshots() {
           showedConnection = true;
         }
 
+        // Export 1 second of video and extract frame
         const videoBuffer = await client.exportVideo(
           cameraId,
           missing.date.getTime(),
-          1000,
+          1000, // 1 second is enough for a single frame
         );
         await client.extractFrameFromVideo(videoBuffer, missing.outputPath);
         console.log("✓");
         capturedCount++;
       } catch (error) {
+        // Handle API errors specially
         if (error.message.includes("API error:")) {
           console.log(error.message);
         } else {
@@ -236,6 +293,7 @@ async function fetchMissingSnapshots() {
     }
   }
 
+  // Display summary statistics
   console.log(`\nSummary:`);
   console.log(`  Captured: ${capturedCount}`);
   console.log(`  Already had: ${skippedCount}`);
@@ -244,9 +302,20 @@ async function fetchMissingSnapshots() {
   return { capturedCount, outputDir, captureHour, captureMinute };
 }
 
+/**
+ * Generates time-lapse video from collected snapshots
+ * Automatically detects optimal resolution and creates MP4 video
+ * @async
+ * @param {string} outputDir - Directory containing snapshots
+ * @param {number} captureHour - Hour of capture time
+ * @param {number} captureMinute - Minute of capture time
+ * @returns {Promise<void>}
+ */
 async function generateTimelapse(outputDir, captureHour, captureMinute) {
   const files = await fs.readdir(outputDir);
   const timeStr = `${String(captureHour).padStart(2, "0")}${String(captureMinute).padStart(2, "0")}`;
+
+  // Filter for snapshots at the specified time
   const snapshots = files
     .filter((f) => f.endsWith(".jpg") && f.includes(`_${timeStr}.jpg`))
     .sort();
@@ -259,16 +328,17 @@ async function generateTimelapse(outputDir, captureHour, captureMinute) {
   console.log(`\nRegenerating time-lapse...`);
   console.log(`Found ${snapshots.length} snapshots`);
 
-  // Create file list for ffmpeg concat
+  // Create file list for ffmpeg concat demuxer
   const fileListPath = path.join(outputDir, "filelist.txt");
   const fileListContent = snapshots.map((f) => `file '${f}'`).join("\n");
   await fs.writeFile(fileListPath, fileListContent);
 
-  // Get first and last dates
+  // Extract date range for filename
   const firstDate = snapshots[0].split("_")[0];
   const lastDate = snapshots[snapshots.length - 1].split("_")[0];
 
   // Determine the resolution from the largest image
+  // This ensures we use the highest quality available
   let maxWidth = 0;
   let maxHeight = 0;
 
@@ -289,46 +359,50 @@ async function generateTimelapse(outputDir, captureHour, captureMinute) {
     }
   }
 
-  // Default to HD if we couldn't get dimensions
+  // Default to HD if we couldn't detect dimensions
   if (maxWidth === 0) {
     maxWidth = 1920;
     maxHeight = 1080;
   }
 
+  // Build output filename with time and date range
   const hourStr =
     String(captureHour).padStart(2, "0") +
     "h" +
     String(captureMinute).padStart(2, "0");
   const outputPath = `timelapse_${hourStr}_${firstDate}_to_${lastDate}.mp4`;
 
-  // Get FPS and quality from environment
+  // Get video settings from environment
   const fps = process.env.VIDEO_FPS || "10";
-  const crf = process.env.VIDEO_QUALITY || "1";
+  const crf = process.env.VIDEO_QUALITY || "1"; // CRF: lower = better quality
 
   return new Promise((resolve, reject) => {
+    // Build ffmpeg arguments for video generation
     const ffmpegArgs = [
       "-f",
-      "concat",
+      "concat", // Use concat demuxer for file list
       "-safe",
-      "0",
+      "0", // Allow absolute paths
       "-i",
       fileListPath,
       "-c:v",
-      "libx264",
+      "libx264", // H.264 codec
       "-preset",
-      "slow",
+      "slow", // Slow preset for better compression
       "-crf",
-      crf,
+      crf, // Quality setting
       "-vf",
+      // Scale and pad to maintain aspect ratio
       `scale=${maxWidth}:${maxHeight}:force_original_aspect_ratio=decrease,pad=${maxWidth}:${maxHeight}:(ow-iw)/2:(oh-ih)/2`,
       "-r",
-      fps,
+      fps, // Output frame rate
       "-pix_fmt",
-      "yuv420p",
-      "-y",
+      "yuv420p", // Pixel format for compatibility
+      "-y", // Overwrite output
       outputPath,
     ];
 
+    // Add quiet flags unless verbose
     if (!isVerbose) {
       ffmpegArgs.unshift("-loglevel", "error", "-stats");
     }
@@ -341,7 +415,7 @@ async function generateTimelapse(outputDir, captureHour, captureMinute) {
       if (code !== 0) {
         reject(new Error(`ffmpeg exited with code ${code}`));
       } else {
-        // Get file size
+        // Get file size for summary
         const stats = await fs.stat(outputPath);
         const sizeMB = (stats.size / (1024 * 1024)).toFixed(1);
 
@@ -351,7 +425,7 @@ async function generateTimelapse(outputDir, captureHour, captureMinute) {
         );
         console.log(`  Resolution: ${maxWidth}x${maxHeight} @ ${fps}fps`);
 
-        // Clean up file list
+        // Clean up temporary file list
         await fs.unlink(fileListPath);
         resolve();
       }
@@ -361,19 +435,29 @@ async function generateTimelapse(outputDir, captureHour, captureMinute) {
   });
 }
 
+/**
+ * Gets image dimensions using ffprobe
+ * Used to determine optimal video resolution
+ * @async
+ * @param {string} imagePath - Path to image file
+ * @returns {Promise<Object>} Object with width and height properties
+ * @returns {number} returns.width - Image width in pixels
+ * @returns {number} returns.height - Image height in pixels
+ * @throws {Error} If ffprobe fails
+ */
 async function getImageDimensions(imagePath) {
   return new Promise((resolve, reject) => {
     const ffprobe = spawn(
       "ffprobe",
       [
         "-v",
-        "error",
+        "error", // Suppress all output except errors
         "-select_streams",
-        "v:0",
+        "v:0", // Select first video stream
         "-show_entries",
-        "stream=width,height",
+        "stream=width,height", // Get width and height
         "-of",
-        "csv=s=x:p=0",
+        "csv=s=x:p=0", // Output as WIDTHxHEIGHT
         imagePath,
       ],
       {
@@ -399,12 +483,19 @@ async function getImageDimensions(imagePath) {
   });
 }
 
+/**
+ * Main execution function
+ * Orchestrates snapshot fetching and time-lapse generation
+ * @async
+ * @returns {Promise<void>}
+ */
 async function main() {
   try {
+    // Fetch any missing snapshots
     const { capturedCount, outputDir, captureHour, captureMinute } =
       await fetchMissingSnapshots();
 
-    // Only generate time-lapse if we have snapshots
+    // Generate time-lapse if we have snapshots
     if (capturedCount > 0 || outputDir) {
       await generateTimelapse(outputDir, captureHour, captureMinute);
     }
@@ -419,4 +510,5 @@ async function main() {
   }
 }
 
+// Run main function
 main();
