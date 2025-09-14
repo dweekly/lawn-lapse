@@ -1,21 +1,21 @@
 export default [
   {
-    files: ['**/*.js'],
+    files: ["**/*.js"],
     languageOptions: {
       ecmaVersion: 2022,
-      sourceType: 'module',
+      sourceType: "module",
       globals: {
-        console: 'readonly',
-        process: 'readonly',
-        Buffer: 'readonly',
-        setTimeout: 'readonly',
+        console: "readonly",
+        process: "readonly",
+        Buffer: "readonly",
+        setTimeout: "readonly",
       },
     },
     rules: {
-      'no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
-      'no-console': 'off',
-      'prefer-const': 'error',
-      'no-var': 'error',
+      "no-unused-vars": ["error", { argsIgnorePattern: "^_" }],
+      "no-console": "off",
+      "prefer-const": "error",
+      "no-var": "error",
     },
   },
 ];

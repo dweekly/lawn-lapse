@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 This is the first public release of UniFi Protect Lawn Lapse after refactoring for open source.
 
 ### Added
+
 - Username/password authentication using `unifi-protect` library
 - Interactive setup wizard (`setup.js`)
 - System status checker (`status.js`)
@@ -24,17 +25,20 @@ This is the first public release of UniFi Protect Lawn Lapse after refactoring f
 - Code of Conduct
 
 ### Changed
+
 - Migrated from hardcoded cookie authentication to environment-based credentials
 - Simplified authentication flow - no browser cookie extraction needed
 - Improved error handling and user feedback
 - Restructured code for better maintainability
 
 ### Security
+
 - Removed all hardcoded credentials
 - Added `.gitignore` rules for sensitive files
 - Implemented secure credential storage in `.env.local`
 
 ### Technical
+
 - Updated to dotenv v17.2.2
 - Node.js 18+ requirement
 - ES modules support
@@ -43,6 +47,7 @@ This is the first public release of UniFi Protect Lawn Lapse after refactoring f
 ## [2.0.0] - 2025-09-12
 
 ### Changed
+
 - **BREAKING**: Switched from cookie-based to username/password authentication
 - **BREAKING**: Replaced multiple scripts with single `capture-and-timelapse.js`
 - Migrated to `unifi-protect` npm library for robust API access
@@ -50,6 +55,7 @@ This is the first public release of UniFi Protect Lawn Lapse after refactoring f
 - Simplified setup process - no more browser cookie extraction
 
 ### Added
+
 - Interactive setup wizard (`setup.js`)
 - Automatic credential validation
 - Support for full URL in retrieve() method
@@ -58,11 +64,13 @@ This is the first public release of UniFi Protect Lawn Lapse after refactoring f
 - Proper project documentation
 
 ### Removed
+
 - Cookie update scripts (no longer needed)
 - Manual cookie extraction requirement
 - 30-day authentication expiration
 
 ### Fixed
+
 - Video export API compatibility issues
 - Authentication timeout problems
 - Historical snapshot retrieval
@@ -70,6 +78,7 @@ This is the first public release of UniFi Protect Lawn Lapse after refactoring f
 ## [1.0.0] - 2025-09-11
 
 ### Initial Release
+
 - Basic snapshot capture from UniFi Protect cameras
 - Time-lapse video generation with ffmpeg
 - Cookie-based authentication
@@ -78,6 +87,7 @@ This is the first public release of UniFi Protect Lawn Lapse after refactoring f
 - Status monitoring script
 
 ### Features
+
 - Daily automated capture at configurable times
 - Permanent local snapshot archive
 - Automatic time-lapse regeneration

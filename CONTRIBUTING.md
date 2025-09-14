@@ -26,6 +26,7 @@ Be respectful and constructive in all interactions. We're all here to build some
 ### Submitting Pull Requests
 
 1. **Fork the repository** and create a branch:
+
    ```bash
    git checkout -b feature/your-feature-name
    ```
@@ -36,18 +37,21 @@ Be respectful and constructive in all interactions. We're all here to build some
    - Update documentation
 
 3. **Test your changes**:
+
    ```bash
    npm run capture  # Test capture functionality
    npm run status   # Check system status
    ```
 
 4. **Format and lint**:
+
    ```bash
    npx prettier --write "*.js"
    npx eslint "*.js" --fix
    ```
 
 5. **Commit with a clear message**:
+
    ```bash
    git commit -m "Add feature: description of what you added"
    ```
@@ -60,12 +64,14 @@ Be respectful and constructive in all interactions. We're all here to build some
 ## Development Setup
 
 1. Clone your fork:
+
    ```bash
    git clone https://github.com/your-username/lawn-lapse.git
    cd lawn-lapse
    ```
 
 2. Install dependencies:
+
    ```bash
    npm install
    ```
@@ -95,6 +101,7 @@ Be respectful and constructive in all interactions. We're all here to build some
 ### Testing
 
 Before submitting:
+
 - Verify capture works with your UniFi Protect setup
 - Check that timelapse generation completes
 - Ensure no credentials are hardcoded
@@ -102,12 +109,14 @@ Before submitting:
 ## Security
 
 **NEVER** commit:
+
 - Passwords or usernames
 - API tokens or cookies
 - IP addresses or hostnames
 - Any `.env` files
 
 If you accidentally commit sensitive data:
+
 1. Remove it immediately
 2. Force push the cleaned history
 3. Rotate any exposed credentials
@@ -115,6 +124,7 @@ If you accidentally commit sensitive data:
 ## Questions?
 
 Feel free to open an issue for:
+
 - Clarification on code
 - Help with development setup
 - Discussion about features

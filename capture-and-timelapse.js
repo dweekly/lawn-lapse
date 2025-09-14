@@ -5,23 +5,35 @@
  * This version uses username/password instead of cookies
  */
 
-import { ProtectApi } from 'unifi-protect';
-import fs from 'fs/promises';
-import { spawn } from 'child_process';
-import path from 'path';
-import dotenv from 'dotenv';
-import { fileURLToPath } from 'url';
+import { ProtectApi } from "unifi-protect";
+import fs from "fs/promises";
+import { spawn } from "child_process";
+import path from "path";
+import dotenv from "dotenv";
+import { fileURLToPath } from "url";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-dotenv.config({ path: path.join(__dirname, '.env.local') });
+// Suppress dotenv messages
+process.env.SUPPRESS_NO_CONFIG_WARNING = "true";
+const originalLog = console.log;
+console.log = (...args) => {
+  if (args[0]?.includes?.("[dotenv")) return;
+  originalLog(...args);
+};
+dotenv.config({ path: path.join(__dirname, ".env.local"), silent: true });
+console.log = originalLog;
+
+// Check for verbose flag
+const isVerbose =
+  process.argv.includes("-v") || process.argv.includes("--verbose");
 
 class UniFiProtectClient {
   constructor() {
     this.protect = new ProtectApi();
     this.host = process.env.UNIFI_HOST;
-    this.username = process.env.UNIFI_USERNAME || 'admin';
+    this.username = process.env.UNIFI_USERNAME || "admin";
     this.password = process.env.UNIFI_PASSWORD;
     this.isConnected = false;
   }
@@ -29,19 +41,22 @@ class UniFiProtectClient {
   async connect() {
     if (this.isConnected) return true;
 
-    console.log(`Connecting to ${this.host}...`);
-    const success = await this.protect.login(this.host, this.username, this.password);
+    const success = await this.protect.login(
+      this.host,
+      this.username,
+      this.password,
+    );
 
     if (!success) {
-      throw new Error('Failed to login to UniFi Protect');
+      throw new Error("Failed to login to UniFi Protect");
     }
 
     this.isConnected = true;
-    console.log('✓ Connected to UniFi Protect');
+    if (isVerbose) console.log("✓ Connected to UniFi Protect");
     return true;
   }
 
-  async exportVideo(cameraId, startMs, durationMs = 5000) {
+  async exportVideo(cameraId, startMs, durationMs = 1000) {
     await this.connect();
 
     const endMs = startMs + durationMs;
@@ -49,14 +64,14 @@ class UniFiProtectClient {
     const url = `https://${this.host}/proxy/protect/api/video/export?camera=${cameraId}&start=${startMs}&end=${endMs}`;
 
     const response = await this.protect.retrieve(url, {
-      method: 'GET',
+      method: "GET",
       headers: {
-        Accept: 'video/mp4',
+        Accept: "video/mp4",
       },
     });
 
     if (!response || !response.body) {
-      throw new Error('No video data received');
+      throw new Error("No video data received");
     }
 
     // Read the stream into a buffer
@@ -75,33 +90,38 @@ class UniFiProtectClient {
       fs.writeFile(tempVideoPath, videoBuffer)
         .then(() => {
           const ffmpeg = spawn(
-            'ffmpeg',
+            "ffmpeg",
             [
-              '-i',
+              "-i",
               tempVideoPath,
-              '-ss',
-              '00:00:00',
-              '-frames:v',
-              '1',
-              '-q:v',
-              '2',
-              '-y',
+              "-ss",
+              "00:00:00",
+              "-frames:v",
+              "1",
+              "-q:v",
+              "2",
+              "-y",
               outputPath,
             ],
-            { stdio: 'pipe' },
+            {
+              stdio: isVerbose ? "inherit" : "pipe",
+            },
           );
 
-          ffmpeg.on('close', async (code) => {
-            await fs.unlink(tempVideoPath).catch(() => {});
-            if (code === 0) {
-              resolve(outputPath);
-            } else {
-              reject(new Error(`ffmpeg failed with code ${code}`));
-            }
+          ffmpeg.on("exit", (code) => {
+            fs.unlink(tempVideoPath)
+              .then(() => {
+                if (code !== 0) {
+                  reject(new Error(`ffmpeg exited with code ${code}`));
+                } else {
+                  resolve();
+                }
+              })
+              .catch(reject);
           });
 
-          ffmpeg.on('error', async (err) => {
-            await fs.unlink(tempVideoPath).catch(() => {});
+          ffmpeg.on("error", (err) => {
+            fs.unlink(tempVideoPath).catch(() => {});
             reject(err);
           });
         })
@@ -112,22 +132,30 @@ class UniFiProtectClient {
 
 async function fetchMissingSnapshots() {
   const now = new Date();
+
   console.log(`[${now.toISOString()}] Starting snapshot capture...`);
 
   // Check for required credentials
   if (!process.env.UNIFI_PASSWORD) {
-    console.error('Error: Missing UNIFI_PASSWORD in .env.local');
-    console.error('Please add your UniFi Protect password to .env.local');
+    console.error("Error: Missing UNIFI_PASSWORD in .env.local");
+    console.error("Please add your UniFi Protect password to .env.local");
     process.exit(1);
   }
 
   // Get capture time configuration
-  const captureHour = parseInt(process.env.CAPTURE_HOUR || '12');
-  const captureMinute = parseInt(process.env.CAPTURE_MINUTE || '0');
+  const snapshotTime = process.env.SNAPSHOT_TIME || "12:00";
+  const [captureHour, captureMinute] = snapshotTime
+    .split(":")
+    .map((n) => parseInt(n));
 
   const client = new UniFiProtectClient();
   const cameraId = process.env.CAMERA_ID;
-  const outputDir = process.env.OUTPUT_DIR || './snapshots';
+  const cameraName = process.env.CAMERA_NAME || "Unknown Camera";
+  const outputDir = process.env.OUTPUT_DIR || "./snapshots";
+
+  // Display camera info
+  console.log(`Camera: ${cameraName} (${cameraId})`);
+  console.log(`Snapshot time: ${snapshotTime}`);
 
   await fs.mkdir(outputDir, { recursive: true });
 
@@ -139,7 +167,7 @@ async function fetchMissingSnapshots() {
   const missingDates = [];
 
   console.log(
-    `Checking for missing ${captureHour}:${String(captureMinute).padStart(2, '0')} snapshots (last ${maxDays} days)...`,
+    `Checking for missing ${captureHour}:${String(captureMinute).padStart(2, "0")} snapshots (last ${maxDays} days)...`,
   );
 
   for (let dayOffset = 0; dayOffset < maxDays; dayOffset++) {
@@ -147,13 +175,13 @@ async function fetchMissingSnapshots() {
     targetDate.setDate(targetDate.getDate() - dayOffset);
     targetDate.setHours(captureHour, captureMinute, 0, 0);
 
-    // Skip future dates
-    if (targetDate > now) {
+    // Skip future dates (including today if capture time hasn't occurred yet)
+    if (targetDate.getTime() > now.getTime()) {
       continue;
     }
 
-    const dateStr = targetDate.toISOString().split('T')[0];
-    const timeStr = `${String(captureHour).padStart(2, '0')}${String(captureMinute).padStart(2, '0')}`;
+    const dateStr = targetDate.toISOString().split("T")[0];
+    const timeStr = `${String(captureHour).padStart(2, "0")}${String(captureMinute).padStart(2, "0")}`;
     const filename = `${dateStr}_${timeStr}.jpg`;
     const outputPath = path.join(outputDir, filename);
 
@@ -168,125 +196,227 @@ async function fetchMissingSnapshots() {
   }
 
   if (missingDates.length === 0) {
-    console.log('✓ All snapshots up to date!');
+    console.log("✓ All snapshots up to date!");
   } else {
-    console.log(`Found ${missingDates.length} missing snapshots. Fetching...`);
+    console.log(
+      `Found ${missingDates.length} missing snapshots. Fetching...\n`,
+    );
 
-    for (const missing of missingDates) {
-      process.stdout.write(`  ${missing.dateStr}: `);
+    // Show initial connection message
+    let showedConnection = false;
+
+    for (let i = 0; i < missingDates.length; i++) {
+      const missing = missingDates[i];
+      const progress = `[${i + 1}/${missingDates.length}]`;
+      process.stdout.write(`  ${progress} ${missing.dateStr}: `);
 
       try {
-        const videoBuffer = await client.exportVideo(cameraId, missing.date.getTime(), 5000);
-        await client.extractFrameFromVideo(videoBuffer, missing.outputPath);
-        console.log('✓');
-        capturedCount++;
+        // Show connection message only once
+        if (!showedConnection && !client.isConnected) {
+          process.stdout.write(`Connecting to ${process.env.UNIFI_HOST}... `);
+          showedConnection = true;
+        }
 
-        // Small delay between captures
-        await new Promise((resolve) => setTimeout(resolve, 2000));
+        const videoBuffer = await client.exportVideo(
+          cameraId,
+          missing.date.getTime(),
+          1000,
+        );
+        await client.extractFrameFromVideo(videoBuffer, missing.outputPath);
+        console.log("✓");
+        capturedCount++;
       } catch (error) {
-        console.log(`✗ (${error.message})`);
+        if (error.message.includes("API error:")) {
+          console.log(error.message);
+        } else {
+          console.log(`✗ (${error.message})`);
+        }
         failedCount++;
       }
     }
   }
 
-  console.log('\nSummary:');
+  console.log(`\nSummary:`);
   console.log(`  Captured: ${capturedCount}`);
   console.log(`  Already had: ${skippedCount}`);
   console.log(`  Failed: ${failedCount}`);
 
-  return { capturedCount, skippedCount, failedCount };
+  return { capturedCount, outputDir, captureHour, captureMinute };
 }
 
-async function regenerateTimelapse() {
-  console.log('\nRegenerating time-lapse...');
-
-  const outputDir = process.env.OUTPUT_DIR || './snapshots';
-
-  // Get all jpg files and sort them
+async function generateTimelapse(outputDir, captureHour, captureMinute) {
   const files = await fs.readdir(outputDir);
-  const jpgFiles = files.filter((f) => f.match(/\d{4}-\d{2}-\d{2}_\d{4}\.jpg$/)).sort();
+  const timeStr = `${String(captureHour).padStart(2, "0")}${String(captureMinute).padStart(2, "0")}`;
+  const snapshots = files
+    .filter((f) => f.endsWith(".jpg") && f.includes(`_${timeStr}.jpg`))
+    .sort();
 
-  if (jpgFiles.length === 0) {
-    console.log('No snapshots found to create timelapse');
+  if (snapshots.length === 0) {
+    console.log("\nNo snapshots found for time-lapse generation");
     return;
   }
 
-  console.log(`Found ${jpgFiles.length} snapshots`);
+  console.log(`\nRegenerating time-lapse...`);
+  console.log(`Found ${snapshots.length} snapshots`);
 
-  // Create file list for ffmpeg
-  const listPath = path.join(outputDir, 'filelist.txt');
-  const fileList = jpgFiles.map((f) => `file '${f}'`).join('\n');
-  await fs.writeFile(listPath, fileList);
+  // Create file list for ffmpeg concat
+  const fileListPath = path.join(outputDir, "filelist.txt");
+  const fileListContent = snapshots.map((f) => `file '${f}'`).join("\n");
+  await fs.writeFile(fileListPath, fileListContent);
 
-  // Generate output filename with date range
-  const firstDate = jpgFiles[0].split('_')[0];
-  const lastDate = jpgFiles[jpgFiles.length - 1].split('_')[0];
-  const timeLabel =
-    process.env.CAPTURE_HOUR === '12' && process.env.CAPTURE_MINUTE === '0'
-      ? 'noon'
-      : `${process.env.CAPTURE_HOUR || '12'}h${process.env.CAPTURE_MINUTE || '00'}`;
-  const outputPath = `timelapse_${timeLabel}_${firstDate}_to_${lastDate}.mp4`;
+  // Get first and last dates
+  const firstDate = snapshots[0].split("_")[0];
+  const lastDate = snapshots[snapshots.length - 1].split("_")[0];
+
+  // Determine the resolution from the largest image
+  let maxWidth = 0;
+  let maxHeight = 0;
+
+  for (const snapshot of snapshots) {
+    const imagePath = path.join(outputDir, snapshot);
+    try {
+      const dimensions = await getImageDimensions(imagePath);
+      if (dimensions.width > maxWidth) {
+        maxWidth = dimensions.width;
+        maxHeight = dimensions.height;
+      }
+    } catch (error) {
+      if (isVerbose)
+        console.error(
+          `Error getting dimensions for ${snapshot}:`,
+          error.message,
+        );
+    }
+  }
+
+  // Default to HD if we couldn't get dimensions
+  if (maxWidth === 0) {
+    maxWidth = 1920;
+    maxHeight = 1080;
+  }
+
+  const hourStr =
+    String(captureHour).padStart(2, "0") +
+    "h" +
+    String(captureMinute).padStart(2, "0");
+  const outputPath = `timelapse_${hourStr}_${firstDate}_to_${lastDate}.mp4`;
+
+  // Get FPS and quality from environment
+  const fps = process.env.VIDEO_FPS || "10";
+  const crf = process.env.VIDEO_QUALITY || "1";
 
   return new Promise((resolve, reject) => {
-    const ffmpeg = spawn(
-      'ffmpeg',
-      [
-        '-f',
-        'concat',
-        '-safe',
-        '0',
-        '-i',
-        listPath,
-        '-framerate',
-        '30',
-        '-c:v',
-        'libx264',
-        '-pix_fmt',
-        'yuv420p',
-        '-y',
-        outputPath,
-      ],
-      { stdio: 'inherit' },
-    );
+    const ffmpegArgs = [
+      "-f",
+      "concat",
+      "-safe",
+      "0",
+      "-i",
+      fileListPath,
+      "-c:v",
+      "libx264",
+      "-preset",
+      "slow",
+      "-crf",
+      crf,
+      "-vf",
+      `scale=${maxWidth}:${maxHeight}:force_original_aspect_ratio=decrease,pad=${maxWidth}:${maxHeight}:(ow-iw)/2:(oh-ih)/2`,
+      "-r",
+      fps,
+      "-pix_fmt",
+      "yuv420p",
+      "-y",
+      outputPath,
+    ];
 
-    ffmpeg.on('close', async (code) => {
-      await fs.unlink(listPath).catch(() => {});
+    if (!isVerbose) {
+      ffmpegArgs.unshift("-loglevel", "error", "-stats");
+    }
 
-      if (code === 0) {
-        const stats = await fs.stat(outputPath);
-        const sizeMB = (stats.size / 1024 / 1024).toFixed(1);
-        console.log(`✓ Time-lapse created: ${outputPath} (${sizeMB}MB)`);
-        console.log(`  ${jpgFiles.length} days from ${firstDate} to ${lastDate}`);
-        resolve(outputPath);
+    const ffmpeg = spawn("ffmpeg", ffmpegArgs, {
+      stdio: isVerbose ? "inherit" : ["pipe", "pipe", "inherit"],
+    });
+
+    ffmpeg.on("exit", async (code) => {
+      if (code !== 0) {
+        reject(new Error(`ffmpeg exited with code ${code}`));
       } else {
-        reject(new Error(`ffmpeg failed with code ${code}`));
+        // Get file size
+        const stats = await fs.stat(outputPath);
+        const sizeMB = (stats.size / (1024 * 1024)).toFixed(1);
+
+        console.log(`✓ Time-lapse created: ${outputPath} (${sizeMB}MB)`);
+        console.log(
+          `  ${snapshots.length} days from ${firstDate} to ${lastDate}`,
+        );
+        console.log(`  Resolution: ${maxWidth}x${maxHeight} @ ${fps}fps`);
+
+        // Clean up file list
+        await fs.unlink(fileListPath);
+        resolve();
       }
     });
 
-    ffmpeg.on('error', reject);
+    ffmpeg.on("error", reject);
+  });
+}
+
+async function getImageDimensions(imagePath) {
+  return new Promise((resolve, reject) => {
+    const ffprobe = spawn(
+      "ffprobe",
+      [
+        "-v",
+        "error",
+        "-select_streams",
+        "v:0",
+        "-show_entries",
+        "stream=width,height",
+        "-of",
+        "csv=s=x:p=0",
+        imagePath,
+      ],
+      {
+        stdio: ["pipe", "pipe", "pipe"],
+      },
+    );
+
+    let output = "";
+    ffprobe.stdout.on("data", (data) => {
+      output += data.toString();
+    });
+
+    ffprobe.on("exit", (code) => {
+      if (code !== 0) {
+        reject(new Error(`ffprobe exited with code ${code}`));
+      } else {
+        const [width, height] = output.trim().split("x").map(Number);
+        resolve({ width, height });
+      }
+    });
+
+    ffprobe.on("error", reject);
   });
 }
 
 async function main() {
   try {
-    // Fetch any missing snapshots
-    const result = await fetchMissingSnapshots();
+    const { capturedCount, outputDir, captureHour, captureMinute } =
+      await fetchMissingSnapshots();
 
-    // Regenerate timelapse if we captured new snapshots
-    if (result.capturedCount > 0) {
-      await regenerateTimelapse();
-    } else if (result.skippedCount > 0) {
-      console.log('\nNo new snapshots, skipping timelapse regeneration.');
+    // Only generate time-lapse if we have snapshots
+    if (capturedCount > 0 || outputDir) {
+      await generateTimelapse(outputDir, captureHour, captureMinute);
     }
 
     console.log(`\n[${new Date().toISOString()}] Daily update complete!`);
-    process.exit(0);
   } catch (error) {
-    console.error('Error:', error.message);
+    console.error("Error:", error.message);
+    if (isVerbose) {
+      console.error(error.stack);
+    }
     process.exit(1);
   }
 }
 
-// Run the main function
 main();
