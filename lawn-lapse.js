@@ -495,9 +495,7 @@ async function runStatus() {
       const lastDate = jpgFiles[jpgFiles.length - 1].split("_")[0];
 
       console.log("\n📸 Snapshots:");
-      console.log(
-        `  Total: ${jpgFiles.length} ${snapshotTime} snapshots`,
-      );
+      console.log(`  Total: ${jpgFiles.length} ${snapshotTime} snapshots`);
       console.log(`  Range: ${firstDate} to ${lastDate}`);
       console.log(`  Days: ${jpgFiles.length} days of footage`);
 
@@ -558,9 +556,11 @@ async function runStatus() {
 
       // Parse date range from filename
       const latest = timelapseStats[0].file;
-      const match = latest.match(/_(\d{2}h\d{2})_(\d{4}-\d{2}-\d{2})_to_(\d{4}-\d{2}-\d{2})/);
+      const match = latest.match(
+        /_(\d{2}h\d{2})_(\d{4}-\d{2}-\d{2})_to_(\d{4}-\d{2}-\d{2})/,
+      );
       if (match) {
-        const [, , startDate, endDate] = match;  // Skip unused 'time' variable
+        const [, , startDate, endDate] = match; // Skip unused 'time' variable
         const start = new Date(startDate);
         const end = new Date(endDate);
         const days = Math.floor((end - start) / (1000 * 60 * 60 * 24)) + 1;
@@ -580,13 +580,19 @@ async function runStatus() {
     const crontab = execSync('crontab -l 2>/dev/null || echo ""', {
       encoding: "utf-8",
     });
-    const hasCron = crontab.includes("lawn-lapse") || crontab.includes("capture-and-timelapse");
+    const hasCron =
+      crontab.includes("lawn-lapse") ||
+      crontab.includes("capture-and-timelapse");
 
     if (hasCron) {
       // Extract the schedule
       const cronLine = crontab
         .split("\n")
-        .find((line) => line.includes("lawn-lapse") || line.includes("capture-and-timelapse"));
+        .find(
+          (line) =>
+            line.includes("lawn-lapse") ||
+            line.includes("capture-and-timelapse"),
+        );
 
       if (cronLine && !cronLine.startsWith("#")) {
         const parts = cronLine.split(" ");
@@ -628,7 +634,9 @@ async function runStatus() {
       console.log(
         `  ✓ System operational with ${snapshotCount} days of footage`,
       );
-      console.log("  💡 Tip: Run lawn-lapse to update snapshots and create video");
+      console.log(
+        "  💡 Tip: Run lawn-lapse to update snapshots and create video",
+      );
     } else {
       console.log("  ⚠️  No snapshots captured yet");
       console.log("  💡 Tip: Run lawn-lapse to start capturing");
