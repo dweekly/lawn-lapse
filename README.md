@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="logo.png" alt="Lawn Lapse Logo" width="200" height="200">
+  <img src="docs/images/logo.png" alt="Lawn Lapse Logo" width="200" height="200">
 
 # 🌱 Lawn Lapse
 
