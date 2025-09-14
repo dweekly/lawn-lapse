@@ -3,7 +3,7 @@
 /**
  * @file lawn.js
  * @description Main CLI entry point for Lawn Lapse - automated time-lapse generator for UniFi Protect cameras
- * @author Lawn Lapse Contributors
+ * @author David E. Weekly
  * @license MIT
  */
 
