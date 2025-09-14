@@ -10,7 +10,8 @@
     "capture": "node capture-and-timelapse.js",
     "format": "prettier --write .",
     "lint": "eslint . --fix",
-    "test": "echo \"No tests configured\" && exit 0"
+    "test": "echo \"No tests configured\" && exit 0",
+    "postinstall": "sh scripts/setup-hooks.sh 2>/dev/null || true"
   },
   "dependencies": {
     "@inquirer/prompts": "^7.2.0",
