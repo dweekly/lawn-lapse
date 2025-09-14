@@ -7,6 +7,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2025-09-13
+
+### Changed
+
+- **BREAKING**: Renamed main binary from `lawn` to `lawn-lapse` for clarity
+- Consolidated all functionality into single CLI entry point (`lawn-lapse.js`)
+- Integrated status checking directly into main CLI (removed separate `status.js`)
+- Updated GitHub Actions to use v5 (from v4) for checkout and setup-node
+- Improved npx compatibility - `npx lawn-lapse` now works correctly
+
+### Added
+
+- Full JSDoc documentation for all functions
+- Comprehensive API documentation (API.md)
+- Modern inline code comments throughout
+- Smart defaults for video generation (10fps, quality 1)
+- Progress indicators during snapshot fetching
+- Camera model information display
+- Verbose mode flag (-v, --verbose) for detailed output
+
+### Removed
+
+- Removed separate `setup.js` file (functionality integrated)
+- Removed separate `status.js` file (functionality integrated)
+- Removed `setup-daily-cron.sh` script (functionality integrated)
+- Removed unnecessary npm scripts for setup and status
+
+### Fixed
+
+- Fixed npx execution issue where binary wasn't found
+- Improved error messages for authentication failures
+- Better handling of missing configuration
+- Consistent file path handling across the codebase
+
 ## [0.1.0] - 2025-01-12
 
 ### Initial Public Release
@@ -16,8 +50,8 @@ This is the first public release of UniFi Protect Lawn Lapse after refactoring f
 ### Added
 
 - Username/password authentication using `unifi-protect` library
-- Interactive setup wizard (`setup.js`)
-- System status checker (`status.js`)
+- Interactive setup wizard (integrated into main CLI)
+- System status checker (integrated into main CLI)
 - Comprehensive documentation (README, CONTRIBUTING, SECURITY)
 - GitHub issue and PR templates
 - Dependabot configuration for automated updates
@@ -56,7 +90,7 @@ This is the first public release of UniFi Protect Lawn Lapse after refactoring f
 
 ### Added
 
-- Interactive setup wizard (`setup.js`)
+- Interactive setup wizard (integrated into main CLI)
 - Automatic credential validation
 - Support for full URL in retrieve() method
 - ESLint and Prettier configuration
@@ -94,5 +128,6 @@ This is the first public release of UniFi Protect Lawn Lapse after refactoring f
 - Gap detection in snapshot sequences
 - Cookie expiration tracking
 
-[Unreleased]: https://github.com/dweekly/lawn-lapse/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/dweekly/lawn-lapse/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/dweekly/lawn-lapse/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/dweekly/lawn-lapse/releases/tag/v0.1.0

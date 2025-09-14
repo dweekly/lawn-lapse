@@ -40,7 +40,7 @@ Be respectful and constructive in all interactions. We're all here to build some
 
    ```bash
    npm run capture  # Test capture functionality
-   npm run status   # Check system status
+   npx lawn-lapse status   # Check system status
    ```
 
 4. **Format and lint**:
@@ -80,7 +80,7 @@ Be respectful and constructive in all interactions. We're all here to build some
 
 4. Run setup:
    ```bash
-   node setup.js
+   npx lawn-lapse
    ```
 
 ## Code Guidelines

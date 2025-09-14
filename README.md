@@ -1,34 +1,60 @@
-# UniFi Protect Lawn Lapse
+# 🌱 Lawn Lapse
 
+[![npm version](https://badge.fury.io/js/lawn-lapse.svg)](https://www.npmjs.com/package/lawn-lapse)
 [![CI](https://github.com/dweekly/lawn-lapse/actions/workflows/ci.yml/badge.svg)](https://github.com/dweekly/lawn-lapse/actions/workflows/ci.yml)
-[![CodeQL](https://github.com/dweekly/lawn-lapse/actions/workflows/codeql.yml/badge.svg)](https://github.com/dweekly/lawn-lapse/actions/workflows/codeql.yml)
-[![Security Scan](https://github.com/dweekly/lawn-lapse/actions/workflows/security.yml/badge.svg)](https://github.com/dweekly/lawn-lapse/actions/workflows/security.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Node Version](https://img.shields.io/node/v/lawn-lapse)](https://nodejs.org)
 
 Automated time-lapse generator for UniFi Protect cameras. Captures daily snapshots at your chosen time and creates beautiful time-lapse videos showing changes over days, months, or years.
 
-## Features
+## 🎬 Demo
 
-- 📸 **Automated Daily Capture** - Captures snapshots at your specified time every day
+Watch your lawn, garden, construction project, or any outdoor space transform over time with automatically generated time-lapse videos.
+
+## ✨ Features
+
+- 📸 **Smart Setup** - Auto-detects configuration and guides through setup on first run
 - 🔄 **Historical Backfill** - Fetches up to 39 days of historical footage from UniFi Protect
-- 🎬 **Automatic Time-lapse Generation** - Creates MP4 videos from collected snapshots
+- 🎬 **Automatic Time-lapse** - Creates MP4 videos from collected snapshots with smart resolution detection
 - 💾 **Permanent Archive** - Stores snapshots locally forever (beyond NVR retention limits)
 - 🔐 **Simple Authentication** - Uses username/password for easy setup
-- ⏰ **Cron Integration** - Runs automatically on macOS via cron jobs
-- 📊 **Status Monitoring** - Check system health and snapshot collection progress
+- ⏰ **Cron Integration** - Runs automatically via cron jobs
+- 📊 **Progress Tracking** - Shows detailed progress during snapshot fetching
+- 🎯 **Smart Defaults** - Optimized settings out of the box (10fps, best quality)
 
-## Prerequisites
+## 📋 Prerequisites
 
-- **macOS** with Terminal access (primary target, may work on Linux)
-- **Node.js 14+** installed
-- **ffmpeg** installed (`brew install ffmpeg` on macOS)
-- **UniFi Protect** system with camera access
-- Access to UniFi Protect web interface
+- **Node.js 18+** (required for modern JavaScript features)
+- **ffmpeg** installed (`brew install ffmpeg` on macOS, `apt install ffmpeg` on Linux)
+- **UniFi Protect** system with at least one camera
+- Admin access to UniFi Protect
 
-## Quick Start
+## 🚀 Quick Start
 
-### 1. Installation
+### Option 1: Run with npx (Recommended)
+
+No installation needed! Just run:
+
+```bash
+npx lawn-lapse
+```
+
+This will:
+1. Guide you through setup on first run
+2. Fetch historical snapshots
+3. Generate your first time-lapse video
+
+### Option 2: Global Installation
+
+```bash
+# Install globally
+npm install -g lawn-lapse
+
+# Run the command
+lawn
+```
+
+### Option 3: Clone Repository
 
 ```bash
 # Clone the repository
@@ -37,237 +63,250 @@ cd lawn-lapse
 
 # Install dependencies
 npm install
+
+# Run the CLI
+npm exec lawn
 ```
 
-### 2. Interactive Setup
+## 🎯 Usage
 
-Run the setup wizard to configure everything automatically:
+### Main Command
 
 ```bash
-node setup.js
+lawn [command]
 ```
 
-The setup wizard will:
+When run without arguments:
+- **First run**: Automatically starts interactive setup
+- **Subsequent runs**: Captures snapshots and updates time-lapse
 
-- Ask for your UniFi Protect host/IP address
-- Request your UniFi Protect username and password
-- Test the connection and list available cameras
-- Let you select which camera to use
-- Configure your preferred capture time (default: noon)
-- Optionally install a cron job for automatic daily captures
+### Commands
 
-### 3. Authentication
+| Command | Description |
+|---------|-------------|
+| `lawn` | Run capture (auto-setup if first time) |
+| `lawn status` | Show configuration and statistics |
+| `lawn cron` | Set up or update automated daily captures |
+| `lawn help` | Display help information |
 
-The setup wizard will ask for your UniFi Protect credentials:
+### Verbose Mode
 
-- **Username**: Your UniFi Protect username (often 'admin')
-- **Password**: Your UniFi Protect password
-
-These are the same credentials you use to log into the UniFi Protect web interface.
-
-**Security Note**: Your credentials are stored locally in `.env.local` which is gitignored and never leaves your computer.
-
-### 4. Verify Installation
-
-After setup, test that everything works:
+Add `-v` or `--verbose` flag for detailed output:
 
 ```bash
-# Check system status
-node status.js
-
-# Run a manual capture and generate timelapse
-node capture-and-timelapse.js
+lawn -v  # Shows ffmpeg output and detailed logging
 ```
 
-## Usage
+## 🔧 Configuration
 
-### Daily Operations
+### Interactive Setup
 
-Once configured, the system runs automatically via cron. The default schedule captures snapshots 15 minutes after your specified time to ensure footage is available.
+On first run, `lawn` will guide you through:
 
-### Manual Commands
+1. **UniFi Protect Connection**
+   - Host/IP address (defaults to 192.168.1.1)
+   - Username (defaults to admin)
+   - Password
 
-```bash
-# Capture snapshots and generate timelapse
-node capture-and-timelapse.js
+2. **Camera Selection**
+   - Shows all available cameras with model info
+   - Indicates offline cameras
+   - Displays resolution capabilities
 
-# Check system status
-node status.js
+3. **Snapshot Settings**
+   - Capture time (24-hour format, defaults to 12:00)
+   - Output directory (defaults to ./snapshots)
 
-# If you change your password, update .env.local
-# Then run capture to test
+4. **Automation Setup**
+   - Optional cron job installation
+   - Automatic daily captures at specified time
 
-# The capture script automatically handles both:
-# - Backfilling up to 39 days of historical snapshots
-# - Generating the timelapse video
+### Configuration File
+
+Settings are stored in `.env.local`:
+
+```env
+# UniFi Protect Configuration
+UNIFI_HOST=192.168.1.1
+UNIFI_USERNAME=admin
+UNIFI_PASSWORD=your-password
+CAMERA_ID=abc123
+CAMERA_NAME=Front Yard
+
+# Snapshot Settings
+SNAPSHOT_TIME=12:00
+OUTPUT_DIR=/path/to/snapshots
+
+# Video Settings (auto-configured)
+VIDEO_FPS=10
+VIDEO_QUALITY=1
 ```
 
-### Monitoring
+> ⚠️ **Security Note**: Keep `.env.local` secure and never commit it to version control
 
-View the automated capture logs:
+## 📸 How It Works
 
-```bash
-# Watch logs in real-time
-tail -f logs/capture.log
+### Snapshot Collection
 
-# Check for recent captures
-grep "$(date +%Y-%m-%d)" logs/capture.log
+1. **Daily Capture**: At your specified time, captures a frame from the camera
+2. **Historical Backfill**: On first run, fetches up to 39 days of historical snapshots
+3. **Smart Fetching**: Only downloads missing snapshots, skips existing ones
+4. **Progress Display**: Shows `[n/total]` progress for each snapshot
 
-# Look for errors
-grep "Error\|Failed" logs/capture.log
-```
+### Time-lapse Generation
 
-## Password Management
+1. **Auto-detection**: Finds the highest resolution from your snapshots
+2. **Smart Scaling**: Maintains aspect ratio while maximizing quality
+3. **Optimized Encoding**: Uses H.264 with slow preset for best compression
+4. **Configurable FPS**: Default 10fps for smooth playback
 
-If you change your UniFi Protect password:
-
-1. Edit `.env.local` and update the `UNIFI_PASSWORD` field
-2. Test the connection:
-   ```bash
-   node capture-and-timelapse.js
-   ```
-3. The script will verify the credentials automatically
-
-## Time-lapse Generation
-
-Time-lapses are automatically generated every time the capture script runs. The script will:
-
-1. Check for missing snapshots from the last 39 days
-2. Fetch any missing snapshots at your configured time
-3. Generate a new timelapse video with all available snapshots
-
-For custom frame rates, edit the ffmpeg parameters in `capture-and-timelapse.js`.
-
-### Default Settings
-
-- **Frame Rate**: 30 fps (about 1.3 seconds of video per 40 days)
-- **Resolution**: Original camera resolution (e.g., 3840x2160 for 4K)
-- **Codec**: H.264 for maximum compatibility
-- **Output**: `timelapse_noon_YYYY-MM-DD_to_YYYY-MM-DD.mp4`
-
-## Storage Considerations
-
-The system never deletes snapshots, building a permanent archive:
-
-- **Per snapshot**: ~2-10MB depending on camera resolution
-- **Daily growth**: ~2-10MB
-- **Yearly estimate**: ~2-4GB
-- **5-year estimate**: ~10-20GB
-- **10-year estimate**: ~20-40GB
-
-Plan your storage accordingly for long-term projects.
-
-## Project Structure
+### File Organization
 
 ```
 lawn-lapse/
-├── capture-and-timelapse.js  # Main script (captures & creates video)
-├── setup.js                  # Interactive setup wizard
-├── status.js                 # System status checker
-├── setup-daily-cron.sh       # Cron installation script
-├── snapshots/                # Captured images (gitignored)
-├── logs/                     # Capture logs (gitignored)
-└── .env.local                # Configuration (created by setup)
+├── snapshots/           # Daily snapshot images
+│   ├── 2024-01-01_1200.jpg
+│   ├── 2024-01-02_1200.jpg
+│   └── ...
+├── timelapse_12h00_2024-01-01_to_2024-03-15.mp4
+└── lawn-lapse.log      # Cron job logs
 ```
 
-## Troubleshooting
+## 🔍 Monitoring
 
-### Authentication Failed
+### Check Status
 
 ```bash
-# Check your credentials in .env.local
-# Make sure username and password are correct
+lawn status
 ```
 
-### Cron Job Not Running
+Shows:
+- Total snapshots collected
+- Date range of footage
+- Gap detection in sequence
+- Time-lapse videos generated
+- Cron job status
+- Last capture time
+
+### Example Output
+
+```
+🎥 Lawn Lapse Status Report
+============================================================
+
+📸 Snapshots:
+  Total: 45 noon snapshots
+  Range: 2024-01-01 to 2024-02-14
+  Days: 45 days of footage
+  ✓ No gaps in sequence
+
+🎬 Time-lapses:
+  Found: 3 videos
+  Latest:
+    - timelapse_12h00_2024-01-01_to_2024-02-14.mp4 (8.3MB)
+
+⏰ Cron Job:
+  ✓ Active: Daily at 12:00
+  Last run: 2024-02-14 12:00:00 (2 hours ago)
+
+🔐 Authentication:
+  ✓ Credentials configured
+  Using username/password authentication
+```
+
+## 🛠 Troubleshooting
+
+### Common Issues
+
+| Problem | Solution |
+|---------|----------|
+| "No cameras found" | Ensure UniFi Protect is accessible and user has admin privileges |
+| "Authentication failed" | Check username/password, ensure 2FA is disabled for API access |
+| Timeout errors | Reduce video duration or check network connectivity |
+| Missing snapshots | Verify camera was online and recording at capture time |
+| Cron not running | Check cron service is enabled: `sudo launchctl load -w /System/Library/LaunchDaemons/com.vix.cron.plist` |
+
+### Debug Mode
+
+Run with verbose flag for detailed debugging:
 
 ```bash
-# Check if installed
-crontab -l | grep capture-and-timelapse
-
-# Reinstall
-./setup-daily-cron.sh
+lawn -v
 ```
 
-### Missing Snapshots
+### Manual Capture
+
+Force an immediate capture regardless of schedule:
 
 ```bash
-# Check for specific date
-ls snapshots/*2025-08-15*
-
-# Manually fetch missing days and regenerate video
-node capture-and-timelapse.js
+npm exec lawn
 ```
 
-### Connection Issues
+## 🤝 Contributing
+
+Contributions are welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+
+### Development Setup
 
 ```bash
-# Test by running the capture script
-node capture-and-timelapse.js
+# Clone repository
+git clone https://github.com/dweekly/lawn-lapse.git
+cd lawn-lapse
 
-# Check status
-node status.js
+# Install dependencies
+npm install
+
+# Run in development
+node lawn-lapse.js -v
+
+# Format code
+npm run format
+
+# Lint code
+npm run lint
 ```
 
-## Advanced Configuration
+## 📝 API Documentation
 
-### Multiple Cameras
+### Main Functions
 
-To capture from multiple cameras, create separate configurations:
+The project exports several key functions for programmatic use:
 
-1. Run setup for first camera: `node setup.js`
-2. Copy configuration: `cp .env.local .env.camera2`
-3. Edit `.env.camera2` with different camera ID
-4. Create separate cron entries for each camera
+```javascript
+import { runSetup, runCapture } from './lawn-lapse.js';
 
-### Custom Capture Times
+// Run interactive setup
+await runSetup();
 
-Edit `.env.local` and modify:
-
-```
-CAPTURE_HOUR=12
-CAPTURE_MINUTE=0
+// Capture snapshots and generate time-lapse
+await runCapture();
 ```
 
-Then update your cron job to run 15 minutes after the capture time.
+See [API.md](API.md) for detailed documentation.
 
-### Different Frame Rates
+## 🔒 Security
 
-For slower/faster time-lapses, adjust the framerate when generating:
+- Credentials are stored locally in `.env.local`
+- Never commit `.env.local` to version control
+- Uses UniFi Protect's official API library
+- No external services or telemetry
+- All data stays on your local machine
 
-```bash
-# 10 fps - slower playback
-ffmpeg -framerate 10 -pattern_type glob -i 'snapshots/*.jpg' -c:v libx264 output.mp4
+## 📜 License
 
-# 60 fps - faster playback
-ffmpeg -framerate 60 -pattern_type glob -i 'snapshots/*.jpg' -c:v libx264 output.mp4
-```
+MIT License - see [LICENSE](LICENSE) file for details
 
-## Security Notes
+## 🙏 Acknowledgments
 
-- **Never commit credentials** - All authentication data is stored in `.env.local` (gitignored)
-- **Password stored locally** - Your password is stored in plain text in `.env.local`
-- **Local network only** - Designed for LAN access to UniFi Protect
-- **Read-only access** - Only fetches video, doesn't modify camera settings
+- Built with [unifi-protect](https://github.com/hjdhjd/homebridge-unifi-protect) library
+- Inspired by traditional time-lapse photography techniques
+- Thanks to the UniFi Protect community
 
-## Contributing
+## 📧 Support
 
-Contributions are welcome! Please:
-
-1. Fork the repository
-2. Create a feature branch
-3. Test your changes thoroughly
-4. Ensure no credentials are included
-5. Submit a pull request
-
-## License
-
-MIT License - See [LICENSE](LICENSE) file for details
-
-## Acknowledgments
-
-Built for the UniFi Protect community. Special thanks to Ubiquiti for creating an excellent camera system.
+- **Issues**: [GitHub Issues](https://github.com/dweekly/lawn-lapse/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/dweekly/lawn-lapse/discussions)
 
 ---
 
-_Capture memories, one frame at a time._ 📸
+Made with ❤️ for the UniFi Protect community
