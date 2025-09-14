@@ -4,7 +4,7 @@
   "description": "Capture daily snapshots from UniFi Protect camera and create time-lapse videos",
   "type": "module",
   "bin": {
-    "lawn-lapse": "./lawn-lapse.js"
+    "lawn-lapse": "lawn-lapse.js"
   },
   "scripts": {
     "capture": "node capture-and-timelapse.js",
