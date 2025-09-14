@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.1] - 2025-09-13
+
+### Fixed
+
+- **CI/CD**: Fixed module auto-execution during import that caused CI test failures
+- **CI/CD**: Tests now work without UniFi credentials or host access
+- **CI/CD**: Removed Node.js 18.x from test matrix due to undici compatibility issues
+- **Documentation**: Fixed broken logo path in README
+- **GitHub Pages**: Added PNG files to repository (excluded from .gitignore for docs/)
+- **GitHub Pages**: All favicons and images now load correctly
+- **Security**: Added pre-push hooks for code quality enforcement
+- **Developer Experience**: Modules can now be safely imported without triggering setup
+
+### Added
+
+- **Branding**: Logo and favicons in multiple sizes (16x16, 32x32, 180x180, 192x192, 512x512)
+- **SEO**: Comprehensive Open Graph and Twitter Card metadata
+- **SEO**: JSON-LD structured data for better search indexing
+- **Testing**: Basic syntax validation and export verification
+
 ## [0.2.0] - 2025-09-13
 
 ### Changed

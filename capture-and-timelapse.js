@@ -4,7 +4,7 @@
  * @file capture-and-timelapse.js
  * @description Captures snapshots from UniFi Protect cameras and generates time-lapse videos
  * Handles historical backfill, daily captures, and video generation with smart resolution detection
- * @author Lawn Lapse Contributors
+ * @author David E. Weekly
  * @license MIT
  */
 
