@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lawn Lapse - Automated Time-Lapse for UniFi Protect</title>
+    <meta name="description" content="Transform your UniFi Protect camera into an automated time-lapse generator. Watch your lawn, garden, or construction project evolve over time.">
+    <meta property="og:title" content="Lawn Lapse - Automated Time-Lapse Generator">
+    <meta property="og:description" content="Transform your UniFi Protect camera into an automated time-lapse generator">
+    <meta property="og:image" content="https://img.youtube.com/vi/Nn8_IIhVN3M/maxresdefault.jpg">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+
+        header {
+            background: rgba(255, 255, 255, 0.98);
+            padding: 1.5rem 0;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            font-size: 1.5rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .github-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1.5rem;
+            background: #24292e;
+            color: white;
+            text-decoration: none;
+            border-radius: 0.5rem;
+            transition: all 0.3s ease;
+            font-weight: 500;
+        }
+
+        .github-link:hover {
+            background: #1a1e22;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        }
+
+        .hero {
+            padding: 4rem 0;
+            text-align: center;
+            color: white;
+        }
+
+        h1 {
+            font-size: 3rem;
+            font-weight: 700;
+            margin-bottom: 1.5rem;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        .tagline {
+            font-size: 1.25rem;
+            margin-bottom: 2rem;
+            opacity: 0.95;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .cta-buttons {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-bottom: 3rem;
+        }
+
+        .btn {
+            padding: 0.75rem 2rem;
+            border-radius: 0.5rem;
+            text-decoration: none;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            display: inline-block;
+        }
+
+        .btn-primary {
+            background: white;
+            color: #667eea;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: 2px solid white;
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        .video-section {
+            background: white;
+            border-radius: 1rem;
+            padding: 2rem;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+            margin-bottom: 4rem;
+        }
+
+        .video-wrapper {
+            position: relative;
+            padding-bottom: 56.25%;
+            height: 0;
+            overflow: hidden;
+            border-radius: 0.5rem;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1);
+        }
+
+        .video-wrapper iframe {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            border: 0;
+        }
+
+        .features {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            margin: 4rem 0;
+        }
+
+        .feature-card {
+            background: white;
+            padding: 2rem;
+            border-radius: 1rem;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s ease;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+        }
+
+        .feature-icon {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .feature-card h3 {
+            color: #333;
+            margin-bottom: 0.75rem;
+            font-size: 1.25rem;
+        }
+
+        .feature-card p {
+            color: #666;
+            line-height: 1.6;
+        }
+
+        .how-it-works {
+            background: white;
+            border-radius: 1rem;
+            padding: 3rem 2rem;
+            margin: 4rem 0;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+        }
+
+        .how-it-works h2 {
+            text-align: center;
+            margin-bottom: 3rem;
+            font-size: 2.5rem;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .steps {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 2rem;
+        }
+
+        .step {
+            text-align: center;
+            padding: 1.5rem;
+        }
+
+        .step-number {
+            display: inline-block;
+            width: 3rem;
+            height: 3rem;
+            line-height: 3rem;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 50%;
+            font-weight: 700;
+            font-size: 1.25rem;
+            margin-bottom: 1rem;
+        }
+
+        .step h3 {
+            color: #333;
+            margin-bottom: 0.75rem;
+        }
+
+        .step p {
+            color: #666;
+        }
+
+        .who-for {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 1rem;
+            padding: 3rem 2rem;
+            margin: 4rem 0;
+            color: white;
+        }
+
+        .who-for h2 {
+            text-align: center;
+            margin-bottom: 2rem;
+            font-size: 2.5rem;
+        }
+
+        .use-cases {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.5rem;
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        .use-case {
+            background: rgba(255, 255, 255, 0.15);
+            padding: 1.5rem;
+            border-radius: 0.75rem;
+            text-align: center;
+            backdrop-filter: blur(10px);
+            transition: all 0.3s ease;
+        }
+
+        .use-case:hover {
+            background: rgba(255, 255, 255, 0.25);
+            transform: translateY(-3px);
+        }
+
+        .use-case-icon {
+            font-size: 2rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .use-case h4 {
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+        }
+
+        .use-case p {
+            font-size: 0.9rem;
+            opacity: 0.9;
+        }
+
+        .install-section {
+            background: white;
+            border-radius: 1rem;
+            padding: 3rem 2rem;
+            margin: 4rem 0;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+        }
+
+        .install-section h2 {
+            text-align: center;
+            margin-bottom: 2rem;
+            font-size: 2.5rem;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .code-block {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 1.5rem;
+            border-radius: 0.5rem;
+            font-family: 'Courier New', monospace;
+            font-size: 1.1rem;
+            margin: 1rem 0;
+            position: relative;
+            overflow-x: auto;
+        }
+
+        .code-block::before {
+            content: '$';
+            color: #7ca668;
+            margin-right: 0.5rem;
+        }
+
+        footer {
+            text-align: center;
+            padding: 3rem 0;
+            color: white;
+            opacity: 0.9;
+        }
+
+        footer a {
+            color: white;
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        footer a:hover {
+            text-decoration: underline;
+        }
+
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 2rem;
+            }
+
+            .tagline {
+                font-size: 1.1rem;
+            }
+
+            .how-it-works h2,
+            .who-for h2,
+            .install-section h2 {
+                font-size: 1.75rem;
+            }
+
+            .features {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <nav class="container">
+            <div class="logo">🌱 Lawn Lapse</div>
+            <a href="https://github.com/dweekly/lawn-lapse" class="github-link">
+                <svg width="20" height="20" viewBox="0 0 16 16" fill="currentColor">
+                    <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
+                </svg>
+                View on GitHub
+            </a>
+        </nav>
+    </header>
+
+    <section class="hero">
+        <div class="container">
+            <h1>Watch Your World Change, One Day at a Time</h1>
+            <p class="tagline">Transform your UniFi Protect camera into an automated time-lapse generator. Perfect for capturing the slow beauty of nature, construction projects, or seasonal changes.</p>
+
+            <div class="cta-buttons">
+                <a href="#install" class="btn btn-primary">Get Started</a>
+                <a href="https://github.com/dweekly/lawn-lapse" class="btn btn-secondary">Documentation</a>
+            </div>
+
+            <div class="video-section">
+                <div class="video-wrapper">
+                    <iframe
+                        src="https://www.youtube.com/embed/Nn8_IIhVN3M"
+                        title="Lawn Lapse Demo - Time-lapse of a lawn growing"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        allowfullscreen>
+                    </iframe>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="container">
+        <div class="features">
+            <div class="feature-card">
+                <div class="feature-icon">📸</div>
+                <h3>Automated Capture</h3>
+                <p>Set it and forget it. Lawn Lapse automatically captures a snapshot at your chosen time every day, building your time-lapse library effortlessly.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">🎬</div>
+                <h3>Smart Video Generation</h3>
+                <p>Automatically creates smooth, high-quality MP4 time-lapse videos from your collected snapshots with intelligent resolution detection.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">💾</div>
+                <h3>Forever Storage</h3>
+                <p>Keep your memories forever. Unlike UniFi Protect's 30-day limit, Lawn Lapse stores your snapshots permanently on your local system.</p>
+            </div>
+        </div>
+    </section>
+
+    <section class="who-for">
+        <div class="container">
+            <h2>Who Is This For?</h2>
+            <div class="use-cases">
+                <div class="use-case">
+                    <div class="use-case-icon">🏡</div>
+                    <h4>Homeowners</h4>
+                    <p>Watch your garden bloom through the seasons</p>
+                </div>
+                <div class="use-case">
+                    <div class="use-case-icon">🌻</div>
+                    <h4>Gardeners</h4>
+                    <p>Document plant growth and seasonal changes</p>
+                </div>
+                <div class="use-case">
+                    <div class="use-case-icon">🏗️</div>
+                    <h4>Builders</h4>
+                    <p>Create progress videos of construction projects</p>
+                </div>
+                <div class="use-case">
+                    <div class="use-case-icon">🌤️</div>
+                    <h4>Weather Watchers</h4>
+                    <p>Capture daily sky and weather patterns</p>
+                </div>
+                <div class="use-case">
+                    <div class="use-case-icon">🎨</div>
+                    <h4>Artists</h4>
+                    <p>Create unique visual art from everyday scenes</p>
+                </div>
+                <div class="use-case">
+                    <div class="use-case-icon">🔬</div>
+                    <h4>Researchers</h4>
+                    <p>Document long-term environmental changes</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="how-it-works">
+        <div class="container">
+            <h2>How It Works</h2>
+            <div class="steps">
+                <div class="step">
+                    <div class="step-number">1</div>
+                    <h3>Connect</h3>
+                    <p>Link to your UniFi Protect system with simple username and password authentication</p>
+                </div>
+                <div class="step">
+                    <div class="step-number">2</div>
+                    <h3>Configure</h3>
+                    <p>Choose your camera and set the daily capture time that works best for your scene</p>
+                </div>
+                <div class="step">
+                    <div class="step-number">3</div>
+                    <h3>Capture</h3>
+                    <p>Lawn Lapse automatically fetches snapshots daily and stores them permanently</p>
+                </div>
+                <div class="step">
+                    <div class="step-number">4</div>
+                    <h3>Create</h3>
+                    <p>Generate beautiful time-lapse videos showing days, months, or years of change</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="install-section" id="install">
+        <div class="container">
+            <h2>Quick Start</h2>
+            <p style="text-align: center; margin-bottom: 2rem; color: #666;">
+                Get up and running in less than a minute. No installation required!
+            </p>
+
+            <div style="max-width: 600px; margin: 0 auto;">
+                <h3 style="margin-bottom: 1rem;">Prerequisites</h3>
+                <ul style="margin-bottom: 2rem; color: #666; padding-left: 1.5rem;">
+                    <li>Node.js 18+ installed</li>
+                    <li>FFmpeg installed</li>
+                    <li>UniFi Protect system with at least one camera</li>
+                    <li>Admin access to UniFi Protect</li>
+                </ul>
+
+                <h3 style="margin-bottom: 1rem;">Run with npx (Recommended)</h3>
+                <div class="code-block">npx lawn-lapse</div>
+
+                <p style="text-align: center; margin: 2rem 0; color: #666;">
+                    That's it! The interactive setup will guide you through configuration.
+                </p>
+
+                <div style="text-align: center; margin-top: 2rem;">
+                    <a href="https://github.com/dweekly/lawn-lapse#readme" class="btn btn-primary">
+                        Full Documentation
+                    </a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <footer>
+        <div class="container">
+            <p>Made with ❤️ by <a href="https://github.com/dweekly">David Weekly</a></p>
+            <p style="margin-top: 0.5rem; font-size: 0.9rem; opacity: 0.8;">
+                Open source under the MIT License
+            </p>
+        </div>
+    </footer>
+</body>
+</html>
