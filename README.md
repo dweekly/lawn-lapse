@@ -48,6 +48,7 @@ node setup.js
 ```
 
 The setup wizard will:
+
 - Ask for your UniFi Protect host/IP address
 - Request your UniFi Protect username and password
 - Test the connection and list available cameras
@@ -130,6 +131,7 @@ If you change your UniFi Protect password:
 ## Time-lapse Generation
 
 Time-lapses are automatically generated every time the capture script runs. The script will:
+
 1. Check for missing snapshots from the last 39 days
 2. Fetch any missing snapshots at your configured time
 3. Generate a new timelapse video with all available snapshots
@@ -137,6 +139,7 @@ Time-lapses are automatically generated every time the capture script runs. The 
 For custom frame rates, edit the ffmpeg parameters in `capture-and-timelapse.js`.
 
 ### Default Settings
+
 - **Frame Rate**: 30 fps (about 1.3 seconds of video per 40 days)
 - **Resolution**: Original camera resolution (e.g., 3840x2160 for 4K)
 - **Codec**: H.264 for maximum compatibility
@@ -170,12 +173,14 @@ lawn-lapse/
 ## Troubleshooting
 
 ### Authentication Failed
+
 ```bash
 # Check your credentials in .env.local
 # Make sure username and password are correct
 ```
 
 ### Cron Job Not Running
+
 ```bash
 # Check if installed
 crontab -l | grep capture-and-timelapse
@@ -185,6 +190,7 @@ crontab -l | grep capture-and-timelapse
 ```
 
 ### Missing Snapshots
+
 ```bash
 # Check for specific date
 ls snapshots/*2025-08-15*
@@ -194,6 +200,7 @@ node capture-and-timelapse.js
 ```
 
 ### Connection Issues
+
 ```bash
 # Test by running the capture script
 node capture-and-timelapse.js
@@ -216,6 +223,7 @@ To capture from multiple cameras, create separate configurations:
 ### Custom Capture Times
 
 Edit `.env.local` and modify:
+
 ```
 CAPTURE_HOUR=12
 CAPTURE_MINUTE=0
@@ -226,11 +234,12 @@ Then update your cron job to run 15 minutes after the capture time.
 ### Different Frame Rates
 
 For slower/faster time-lapses, adjust the framerate when generating:
+
 ```bash
 # 10 fps - slower playback
 ffmpeg -framerate 10 -pattern_type glob -i 'snapshots/*.jpg' -c:v libx264 output.mp4
 
-# 60 fps - faster playback  
+# 60 fps - faster playback
 ffmpeg -framerate 60 -pattern_type glob -i 'snapshots/*.jpg' -c:v libx264 output.mp4
 ```
 
@@ -261,4 +270,4 @@ Built for the UniFi Protect community. Special thanks to Ubiquiti for creating a
 
 ---
 
-*Capture memories, one frame at a time.* 📸
+_Capture memories, one frame at a time._ 📸
