@@ -56,7 +56,25 @@ jobs:
         run: |
           node -e "const pkg = require('./package.json'); if (!pkg.engines || !pkg.engines.node) throw new Error('Missing node engine requirement');"
 
-      - name: Test module imports
+      - name: Test module syntax
         run: |
-          node -e "import('./capture-and-timelapse.js').catch(e => { if (!e.message.includes('UNIFI_HOST')) throw e; })"
-          node -e "import('./lawn-lapse.js').catch(e => {})"
+          # Just verify the modules have valid syntax, don't actually run them
+          node --check capture-and-timelapse.js
+          node --check lawn-lapse.js
+
+      - name: Test basic imports
+        run: |
+          # Test that the main module exports the expected functions
+          node -e "
+            import('./lawn-lapse.js').then(module => {
+              const required = ['runSetup', 'runCapture', 'runStatus', 'loadExistingConfig', 'saveConfig'];
+              const missing = required.filter(fn => !module[fn]);
+              if (missing.length > 0) {
+                throw new Error('Missing exports: ' + missing.join(', '));
+              }
+              console.log('✓ All expected functions are exported');
+            }).catch(e => {
+              console.error('Failed to import lawn-lapse.js:', e.message);
+              process.exit(1);
+            });
+          "
