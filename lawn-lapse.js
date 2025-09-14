@@ -396,11 +396,20 @@ async function runSetup(skipCron = false) {
             // Add new cron entry
             const newCron = filteredCron.trim() + "\n" + cronCommand + "\n";
 
-            // Install new crontab
-            const tempFile = path.join(__dirname, ".crontab.tmp");
-            await fs.writeFile(tempFile, newCron);
-            execSync(`crontab ${tempFile}`);
-            await fs.unlink(tempFile);
+            // Install new crontab using stdin to avoid shell injection
+            const child = spawn("crontab", ["-"], {
+              stdio: ["pipe", "inherit", "inherit"],
+            });
+            child.stdin.write(newCron);
+            child.stdin.end();
+
+            await new Promise((resolve, reject) => {
+              child.on("exit", (code) => {
+                if (code === 0) resolve();
+                else reject(new Error(`crontab exited with code ${code}`));
+              });
+              child.on("error", reject);
+            });
 
             console.log(
               `✅ Cron job installed to run daily at ${snapshotTime}`,
