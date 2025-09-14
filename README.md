@@ -1,11 +1,17 @@
-# 🌱 Lawn Lapse
+<div align="center">
+  <img src="logo.png" alt="Lawn Lapse Logo" width="200" height="200">
 
-[![npm version](https://badge.fury.io/js/lawn-lapse.svg)](https://www.npmjs.com/package/lawn-lapse)
-[![CI](https://github.com/dweekly/lawn-lapse/actions/workflows/ci.yml/badge.svg)](https://github.com/dweekly/lawn-lapse/actions/workflows/ci.yml)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Node Version](https://img.shields.io/node/v/lawn-lapse)](https://nodejs.org)
+  # 🌱 Lawn Lapse
 
-Automated time-lapse generator for UniFi Protect cameras. Captures daily snapshots at your chosen time and creates beautiful time-lapse videos showing changes over days, months, or years.
+  [![npm version](https://badge.fury.io/js/lawn-lapse.svg)](https://www.npmjs.com/package/lawn-lapse)
+  [![CI](https://github.com/dweekly/lawn-lapse/actions/workflows/ci.yml/badge.svg)](https://github.com/dweekly/lawn-lapse/actions/workflows/ci.yml)
+  [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+  [![Node Version](https://img.shields.io/node/v/lawn-lapse)](https://nodejs.org)
+
+  **Automated time-lapse generator for UniFi Protect cameras**
+
+  Captures daily snapshots at your chosen time and creates beautiful time-lapse videos showing changes over days, months, or years.
+</div>
 
 ## 🎬 Demo
 
