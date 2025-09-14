@@ -1,0 +1,4 @@
+# GitHub Pages Configuration
+title: Lawn Lapse
+description: Automated time-lapse generator for UniFi Protect cameras
+theme: null # We're using custom HTML
