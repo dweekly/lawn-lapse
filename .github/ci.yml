@@ -9,6 +9,8 @@ on:
 jobs:
   lint-and-test:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
 
     strategy:
       matrix:
@@ -41,5 +43,4 @@ jobs:
       - name: Test module imports
         run: |
           node -e "import('./capture-and-timelapse.js').catch(e => { if (!e.message.includes('UNIFI_HOST')) throw e; })"
-          node -e "import('./setup.js').catch(e => {})"
-          node -e "import('./status.js').catch(e => {})"
+          node -e "import('./lawn-lapse.js').catch(e => {})"
