@@ -7,7 +7,29 @@ on:
     branches: [main]
 
 jobs:
-  lint-and-test:
+  lint:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Use Node.js 20.x
+        uses: actions/setup-node@v5
+        with:
+          node-version: 20.x
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run ESLint
+        run: npx eslint *.js --max-warnings 0
+
+      - name: Run Prettier check
+        run: npx prettier --check "*.js" "*.json" "*.md"
+
+  test:
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -26,12 +48,6 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
-
-      - name: Run ESLint
-        run: npx eslint *.js --max-warnings 0
-
-      - name: Run Prettier check
-        run: npx prettier --check "*.js" "*.json" "*.md"
 
       - name: Check for security vulnerabilities
         run: npm audit --audit-level=moderate

@@ -560,7 +560,7 @@ async function runStatus() {
       const latest = timelapseStats[0].file;
       const match = latest.match(/_(\d{2}h\d{2})_(\d{4}-\d{2}-\d{2})_to_(\d{4}-\d{2}-\d{2})/);
       if (match) {
-        const [, time, startDate, endDate] = match;
+        const [, , startDate, endDate] = match;  // Skip unused 'time' variable
         const start = new Date(startDate);
         const end = new Date(endDate);
         const days = Math.floor((end - start) / (1000 * 60 * 60 * 24)) + 1;
