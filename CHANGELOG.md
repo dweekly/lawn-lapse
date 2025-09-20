@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Configuration**: Settings now live in `lawn.config.json` with automatic migration from legacy `.env.local`
+- **Backfill**: Snapshot backfill walks backwards until UniFi returns no data instead of assuming a 39-day limit
+- **Outputs**: Generated videos are written to camera-specific `timelapses/` directories with per-camera defaults
+
+### Added
+
+- **Testing**: Node test coverage for configuration defaults and legacy migration
+
 ## [0.2.1] - 2025-09-13
 
 ### Fixed

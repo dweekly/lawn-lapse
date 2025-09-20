@@ -132,33 +132,40 @@ On first run, `lawn` will guide you through:
 
 ### Configuration File
 
-Settings are stored in `.env.local`:
+Settings are stored in `lawn.config.json`:
 
-```env
-# UniFi Protect Configuration
-UNIFI_HOST=192.168.1.1
-UNIFI_USERNAME=admin
-UNIFI_PASSWORD=your-password
-CAMERA_ID=abc123
-CAMERA_NAME=Front Yard
-
-# Snapshot Settings
-SNAPSHOT_TIME=12:00
-OUTPUT_DIR=/path/to/snapshots
-
-# Video Settings (auto-configured)
-VIDEO_FPS=10
-VIDEO_QUALITY=1
+```json
+{
+  "version": 1,
+  "unifi": {
+    "host": "192.168.1.1",
+    "username": "admin",
+    "password": "your-password"
+  },
+  "schedule": {
+    "timezone": "America/Los_Angeles",
+    "fixedTimes": ["12:00"]
+  },
+  "cameras": [
+    {
+      "id": "abc123",
+      "name": "Front Yard",
+      "snapshotDir": "./snapshots",
+      "timelapseDir": "./timelapses",
+      "video": { "fps": 10, "quality": 1 }
+    }
+  ]
+}
 ```
 
-> ⚠️ **Security Note**: Keep `.env.local` secure and never commit it to version control
+> ⚠️ **Security Note**: Keep `lawn.config.json` secure and never commit it to version control
 
 ## 📸 How It Works
 
 ### Snapshot Collection
 
 1. **Daily Capture**: At your specified time, captures a frame from the camera
-2. **Historical Backfill**: On first run, fetches up to 39 days of historical snapshots
+2. **Historical Backfill**: On first run, walks backward through available UniFi recordings until no footage remains
 3. **Smart Fetching**: Only downloads missing snapshots, skips existing ones
 4. **Progress Display**: Shows `[n/total]` progress for each snapshot
 
@@ -173,12 +180,14 @@ VIDEO_QUALITY=1
 
 ```
 lawn-lapse/
-├── snapshots/           # Daily snapshot images
+├── snapshots/              # Daily snapshot images
 │   ├── 2024-01-01_1200.jpg
 │   ├── 2024-01-02_1200.jpg
 │   └── ...
-├── timelapse_12h00_2024-01-01_to_2024-03-15.mp4
-└── lawn-lapse.log      # Cron job logs
+├── timelapses/             # Generated MP4 videos
+│   └── timelapse_12h00_2024-01-01_to_2024-03-15.mp4
+├── lawn.config.json        # Project configuration
+└── logs/lawn-lapse.log     # Cron job logs
 ```
 
 ## 🔍 Monitoring
@@ -296,8 +305,8 @@ See [API.md](API.md) for detailed documentation.
 
 ## 🔒 Security
 
-- Credentials are stored locally in `.env.local`
-- Never commit `.env.local` to version control
+- Credentials are stored locally in `lawn.config.json`
+- Never commit `lawn.config.json` to version control
 - Uses UniFi Protect's official API library
 - No external services or telemetry
 - All data stays on your local machine
