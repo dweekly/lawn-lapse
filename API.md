@@ -8,16 +8,11 @@ Lawn Lapse provides programmatic access to its core functionality through export
 
 ```javascript
 // ESM import
-import {
-  runSetup,
-  runCapture,
-  runStatus,
-  loadExistingConfig,
-  saveConfig,
-} from "./lawn-lapse.js";
+import { runSetup, runCapture, runStatus } from "./lawn-lapse.js";
+import { loadConfig, updateConfig, saveConfig } from "./config.js";
 
 // CommonJS require (if configured)
-const { runSetup, runCapture } = require("./lawn-lapse.js");
+const { runSetup, runCapture, runStatus } = require("./lawn-lapse.js");
 ```
 
 ## Core Functions
@@ -96,69 +91,82 @@ import { runStatus } from "./lawn-lapse.js";
 await runStatus();
 ```
 
-### `loadExistingConfig(): Promise<Object>`
+## Configuration Helpers
 
-Loads configuration from `.env.local` file.
+Configuration is managed through `config.js`, which provides utilities for reading and writing `lawn.config.json`.
 
-#### Returns
+### `loadConfig(): Promise<LawnConfig>`
 
-- `Promise<Object>`: Configuration object with key-value pairs
+Loads the structured configuration file, creating it with defaults or migrating from a legacy `.env.local` if necessary.
 
-#### Configuration Object Properties
+#### Example
+
+```javascript
+import { loadConfig } from "./config.js";
+
+const config = await loadConfig();
+console.log("Primary camera:", config.cameras[0]?.name);
+console.log("Capture times:", config.schedule.fixedTimes);
+```
+
+#### `LawnConfig` Shape
 
 ```typescript
-interface Config {
-  UNIFI_HOST?: string; // UniFi Protect host/IP
-  UNIFI_USERNAME?: string; // Username
-  UNIFI_PASSWORD?: string; // Password
-  CAMERA_ID?: string; // Selected camera ID
-  CAMERA_NAME?: string; // Camera display name
-  SNAPSHOT_TIME?: string; // Time in HH:MM format
-  OUTPUT_DIR?: string; // Output directory path
-  VIDEO_FPS?: string; // Video frame rate
-  VIDEO_QUALITY?: string; // Video quality (CRF value)
+interface CameraConfig {
+  id: string;
+  name: string;
+  snapshotDir: string;
+  timelapseDir: string;
+  video: {
+    fps: number;
+    quality: number;
+  };
+}
+
+interface LawnConfig {
+  version: number;
+  unifi: {
+    host: string;
+    username: string;
+    password: string;
+  };
+  schedule: {
+    timezone: string;
+    fixedTimes: string[];
+    interval: { shotsPerHour: number };
+    window: { startHour: string; endHour: string };
+  };
+  cameras: CameraConfig[];
+  videoDefaults: { fps: number; quality: number };
+  notifications: { frequency: string };
+  history: { maxDays: number | null; stopAfterConsecutiveNoData: number };
 }
 ```
 
-#### Example
+### `saveConfig(config: LawnConfig): Promise<void>`
+
+Persists a complete configuration object back to `lawn.config.json`.
 
 ```javascript
-import { loadExistingConfig } from "./lawn-lapse.js";
+import { loadConfig, saveConfig } from "./config.js";
 
-const config = await loadExistingConfig();
-console.log("Camera:", config.CAMERA_NAME);
-console.log("Capture time:", config.SNAPSHOT_TIME);
+const config = await loadConfig();
+config.schedule.fixedTimes = ["06:30"];
+await saveConfig(config);
 ```
 
-### `saveConfig(updates: Object): Promise<void>`
+### `updateConfig(mutator: (draft: LawnConfig) => void): Promise<LawnConfig>`
 
-Saves configuration updates to `.env.local` file.
-
-#### Parameters
-
-- `updates` (Object): Configuration updates to save
-  - `UNIFI_HOST` (string, optional): UniFi Protect host/IP
-  - `UNIFI_USERNAME` (string, optional): Username
-  - `UNIFI_PASSWORD` (string, optional): Password
-  - `CAMERA_ID` (string, optional): Camera ID
-  - `CAMERA_NAME` (string, optional): Camera name
-  - `SNAPSHOT_TIME` (string, optional): Capture time (HH:MM)
-  - `OUTPUT_DIR` (string, optional): Output directory
-  - `VIDEO_FPS` (string, optional): Frame rate
-  - `VIDEO_QUALITY` (string, optional): Quality (CRF)
-
-#### Returns
-
-- `Promise<void>`: Resolves when configuration is saved
-
-#### Example
+Convenience helper that loads, clones, mutates, and saves configuration while returning the updated object.
 
 ```javascript
-import { saveConfig } from "./lawn-lapse.js";
+import { updateConfig } from "./config.js";
 
-await saveConfig({
-  SNAPSHOT_TIME: "14:00",
-  VIDEO_FPS: "15",
+await updateConfig((draft) => {
+  draft.videoDefaults.fps = 12;
+  if (draft.cameras[0]) {
+    draft.cameras[0].video.fps = 12;
+  }
 });
 ```
 
@@ -249,7 +257,8 @@ The following environment variables are used when set:
 ### Automated Capture with Custom Schedule
 
 ```javascript
-import { loadExistingConfig, saveConfig, runCapture } from "./lawn-lapse.js";
+import { runCapture } from "./lawn-lapse.js";
+import { loadConfig, saveConfig } from "./config.js";
 import cron from "node-cron";
 
 // Update capture time
@@ -269,11 +278,12 @@ cron.schedule("0 6 * * *", async () => {
 ### Conditional Capture Based on Weather
 
 ```javascript
-import { runCapture, loadExistingConfig } from "./lawn-lapse.js";
+import { runCapture } from "./lawn-lapse.js";
+import { loadConfig } from "./config.js";
 import fetch from "node-fetch";
 
 async function captureIfSunny() {
-  const config = await loadExistingConfig();
+  const config = await loadConfig();
 
   // Check weather API
   const weather = await fetch("https://api.weather.com/...");
@@ -314,12 +324,12 @@ for (const camera of cameras) {
 ### Custom Status Reporter
 
 ```javascript
-import { loadExistingConfig } from "./lawn-lapse.js";
+import { loadConfig } from "./config.js";
 import fs from "fs/promises";
 import path from "path";
 
 async function getDetailedStatus() {
-  const config = await loadExistingConfig();
+  const config = await loadConfig();
   const outputDir = config.OUTPUT_DIR || "./snapshots";
 
   // Count snapshots
@@ -354,7 +364,7 @@ import { runSetup, runCapture } from "./lawn-lapse.js";
 async function safeCapture() {
   try {
     // Check if setup needed
-    const config = await loadExistingConfig();
+    const config = await loadConfig();
     if (!config.CAMERA_ID) {
       console.log("Running setup...");
       await runSetup();
@@ -385,7 +395,7 @@ declare module "lawn-lapse" {
   export function runSetup(skipCron?: boolean): Promise<void>;
   export function runCapture(): Promise<void>;
   export function runStatus(): Promise<void>;
-  export function loadExistingConfig(): Promise<Config>;
+  export function loadConfig(): Promise<LawnConfig>;
   export function saveConfig(updates: Partial<Config>): Promise<void>;
 
   interface Config {
