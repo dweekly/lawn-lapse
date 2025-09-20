@@ -3,6 +3,8 @@
 .env.local
 .env.*.local
 *.env
+.env.local.bak
+lawn.config.json
 
 # Authentication cookies (NEVER commit these!)
 *cookies*.json

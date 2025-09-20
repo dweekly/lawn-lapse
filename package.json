@@ -10,7 +10,7 @@
     "capture": "node capture-and-timelapse.js",
     "format": "prettier --write .",
     "lint": "eslint . --fix",
-    "test": "node --check lawn-lapse.js && node --check capture-and-timelapse.js && echo '✓ Syntax check passed'",
+    "test": "node --test && node --check lawn-lapse.js && node --check capture-and-timelapse.js && echo '✓ Tests passed'",
     "postinstall": "sh scripts/setup-hooks.sh 2>/dev/null || true"
   },
   "dependencies": {

@@ -12,21 +12,20 @@ import { ProtectApi } from "unifi-protect";
 import fs from "fs/promises";
 import { spawn } from "child_process";
 import path from "path";
-import dotenv from "dotenv";
 import { fileURLToPath } from "url";
+
+import { loadConfig } from "./config.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Suppress promotional messages from dotenv
-process.env.SUPPRESS_NO_CONFIG_WARNING = "true";
-const originalLog = console.log;
-console.log = (...args) => {
-  if (args[0]?.includes?.("[dotenv")) return;
-  originalLog(...args);
-};
-dotenv.config({ path: path.join(__dirname, ".env.local"), silent: true });
-console.log = originalLog;
+let cachedConfig;
+async function getConfig() {
+  if (!cachedConfig) {
+    cachedConfig = await loadConfig();
+  }
+  return cachedConfig;
+}
 
 // Check for verbose flag for detailed output
 const isVerbose =
@@ -42,11 +41,11 @@ class UniFiProtectClient {
    * Creates a new UniFi Protect client instance
    * @constructor
    */
-  constructor() {
+  constructor(config) {
     this.protect = new ProtectApi();
-    this.host = process.env.UNIFI_HOST;
-    this.username = process.env.UNIFI_USERNAME || "admin";
-    this.password = process.env.UNIFI_PASSWORD;
+    this.host = config.unifi.host;
+    this.username = config.unifi.username || "admin";
+    this.password = config.unifi.password;
     this.isConnected = false;
   }
 
@@ -172,128 +171,189 @@ class UniFiProtectClient {
 }
 
 /**
- * Fetches missing snapshots from UniFi Protect
- * Checks for gaps in snapshot collection and backfills from video recordings
+ * Fetches missing snapshots from UniFi Protect.
+ * Checks for gaps in snapshot collection and backfills from video recordings.
  * @async
- * @returns {Promise<Object>} Object containing capture statistics and configuration
- * @returns {number} returns.capturedCount - Number of new snapshots captured
- * @returns {string} returns.outputDir - Output directory path
- * @returns {number} returns.captureHour - Hour of capture time
- * @returns {number} returns.captureMinute - Minute of capture time
+ * @param {Object} config - Loaded application configuration.
+ * @param {Object} camera - The camera configuration to process.
+ * @returns {Promise<Object>} Capture statistics.
  */
-async function fetchMissingSnapshots() {
+async function fetchMissingSnapshots(config, camera) {
   const now = new Date();
 
   console.log(`[${now.toISOString()}] Starting snapshot capture...`);
 
-  // Validate required credentials
-  if (!process.env.UNIFI_PASSWORD) {
-    console.error("Error: Missing UNIFI_PASSWORD in .env.local");
-    console.error("Please add your UniFi Protect password to .env.local");
+  if (!config.unifi.password) {
+    console.error("Error: Missing UniFi Protect password in configuration.");
+    console.error(
+      "Please run 'lawn-lapse setup' to add credentials to lawn.config.json",
+    );
     process.exit(1);
   }
 
-  // Parse capture time configuration
-  const snapshotTime = process.env.SNAPSHOT_TIME || "12:00";
+  if (!camera || !camera.id) {
+    console.error("Error: No camera configured. Run setup to select a camera.");
+    process.exit(1);
+  }
+
+  const snapshotTime = config.schedule.fixedTimes?.[0] || "12:00";
   const [captureHour, captureMinute] = snapshotTime
     .split(":")
-    .map((n) => parseInt(n));
+    .map((n) => parseInt(n, 10));
 
-  const client = new UniFiProtectClient();
-  const cameraId = process.env.CAMERA_ID;
-  const cameraName = process.env.CAMERA_NAME || "Unknown Camera";
-  const outputDir = process.env.OUTPUT_DIR || "./snapshots";
+  const client = new UniFiProtectClient(config);
+  const cameraName = camera.name || "Unknown Camera";
+  const outputDir = camera.snapshotDir || path.join(__dirname, "snapshots");
 
-  // Display camera information
-  console.log(`Camera: ${cameraName} (${cameraId})`);
-  console.log(`Snapshot time: ${snapshotTime}`);
+  console.log(`Camera: ${cameraName} (${camera.id})`);
+  const timezone =
+    config.schedule.timezone ||
+    Intl.DateTimeFormat().resolvedOptions().timeZone ||
+    "UTC";
+  console.log(`Snapshot cadence: ${snapshotTime} ${timezone}`);
 
-  // Ensure output directory exists
   await fs.mkdir(outputDir, { recursive: true });
 
-  // Check for missing snapshots in the last 39 days (UniFi Protect retention limit)
-  const maxDays = 39;
+  const historyConfig = config.history || {};
+  const maxDays = Number.isFinite(historyConfig.maxDays)
+    ? historyConfig.maxDays
+    : null;
+  const HARD_LIMIT_DAYS = 365;
+  const maxNoData = historyConfig.stopAfterConsecutiveNoData ?? 7;
+
   let capturedCount = 0;
   let skippedCount = 0;
   let failedCount = 0;
-  const missingDates = [];
+  let consecutiveNoData = 0;
+  let consecutiveNotFound = 0;
+  let consecutiveFailures = 0;
+  let attemptCount = 0;
 
-  console.log(
-    `Checking for missing ${captureHour}:${String(captureMinute).padStart(2, "0")} snapshots (last ${maxDays} days)...`,
+  const files = await fs.readdir(outputDir).catch(() => []);
+  const timeSuffix = `${String(captureHour).padStart(2, "0")}${String(captureMinute).padStart(2, "0")}`;
+  const existingSnapshots = new Set(
+    files.filter((f) => f.endsWith(`_${timeSuffix}.jpg`)),
   );
 
-  // Scan backwards through time to find missing snapshots
-  for (let dayOffset = 0; dayOffset < maxDays; dayOffset++) {
+  console.log(
+    maxDays
+      ? `Checking for missing ${captureHour}:${String(captureMinute).padStart(2, "0")} snapshots (up to ${maxDays} days back)...`
+      : `Checking historical snapshots until no recordings remain (max 365 days)...`,
+  );
+
+  const newSnapshots = [];
+
+  for (let dayOffset = 0; ; dayOffset++) {
+    if (maxDays !== null && dayOffset >= maxDays) {
+      break;
+    }
+
+    if (dayOffset >= HARD_LIMIT_DAYS) {
+      console.log(
+        `\nReached 365-day backfill limit. Stopping historical retrieval.`,
+      );
+      break;
+    }
+
     const targetDate = new Date();
     targetDate.setDate(targetDate.getDate() - dayOffset);
     targetDate.setHours(captureHour, captureMinute, 0, 0);
 
-    // Skip future dates (including today if capture time hasn't occurred yet)
     if (targetDate.getTime() > now.getTime()) {
       continue;
     }
 
-    // Build filename using consistent format: YYYY-MM-DD_HHMM.jpg
     const dateStr = targetDate.toISOString().split("T")[0];
     const timeStr = `${String(captureHour).padStart(2, "0")}${String(captureMinute).padStart(2, "0")}`;
     const filename = `${dateStr}_${timeStr}.jpg`;
     const outputPath = path.join(outputDir, filename);
 
-    // Check if snapshot already exists
-    try {
-      await fs.access(outputPath);
+    if (existingSnapshots.has(filename)) {
       skippedCount++;
-    } catch {
-      // File doesn't exist - add to missing list for backfill
-      missingDates.push({ date: targetDate, dateStr, filename, outputPath });
+      continue;
     }
-  }
 
-  if (missingDates.length === 0) {
-    console.log("✓ All snapshots up to date!");
-  } else {
-    console.log(
-      `Found ${missingDates.length} missing snapshots. Fetching...\n`,
-    );
+    attemptCount++;
+    const prefix = `  [${attemptCount}] ${dateStr}: `;
 
-    // Track if we've shown the connection message
-    let showedConnection = false;
-
-    // Process each missing snapshot with progress indicator
-    for (let i = 0; i < missingDates.length; i++) {
-      const missing = missingDates[i];
-      const progress = `[${i + 1}/${missingDates.length}]`;
-      process.stdout.write(`  ${progress} ${missing.dateStr}: `);
-
-      try {
-        // Show connection message only once
-        if (!showedConnection && !client.isConnected) {
-          process.stdout.write(`Connecting to ${process.env.UNIFI_HOST}... `);
-          showedConnection = true;
-        }
-
-        // Export 1 second of video and extract frame
-        const videoBuffer = await client.exportVideo(
-          cameraId,
-          missing.date.getTime(),
-          1000, // 1 second is enough for a single frame
+    try {
+      if (!client.isConnected) {
+        console.log(
+          `${prefix}Connecting to ${config.unifi.host || "UniFi Protect"}...`,
         );
-        await client.extractFrameFromVideo(videoBuffer, missing.outputPath);
-        console.log("✓");
-        capturedCount++;
-      } catch (error) {
-        // Handle API errors specially
-        if (error.message.includes("API error:")) {
-          console.log(error.message);
-        } else {
-          console.log(`✗ (${error.message})`);
+      }
+
+      const videoBuffer = await client.exportVideo(
+        camera.id,
+        targetDate.getTime(),
+        1000,
+      );
+      await client.extractFrameFromVideo(videoBuffer, outputPath);
+      console.log(`${prefix}✓`);
+      capturedCount++;
+      newSnapshots.push(outputPath);
+      consecutiveNoData = 0;
+      consecutiveNotFound = 0;
+      consecutiveFailures = 0;
+    } catch (error) {
+      const message = error?.message || String(error);
+      console.log(`${prefix}✗ (${message})`);
+      failedCount++;
+
+      const normalizedMessage = message.toLowerCase();
+      const fatalConnectionError =
+        /failed to login|eperm|econnrefused|unauthorized|forbidden|invalid credentials|network unreachable/.test(
+          normalizedMessage,
+        );
+      const looksLikeNoData =
+        /404|no data|no recording|no video data|not found|taking too long|throttling api calls|timed out/.test(
+          normalizedMessage,
+        );
+      const looksLikeNotFound = /404|not found/.test(normalizedMessage);
+
+      if (fatalConnectionError) {
+        throw new Error(
+          `Unable to continue snapshot backfill: ${message}. Aborting.`,
+        );
+      }
+
+      consecutiveFailures += 1;
+      if (looksLikeNoData) {
+        consecutiveNoData += 1;
+      } else {
+        consecutiveNoData = 0;
+      }
+
+      if (looksLikeNotFound) {
+        consecutiveNotFound += 1;
+        if (consecutiveNotFound >= 3) {
+          console.log(
+            "\nEncountered three consecutive 404/not found responses. Stopping backfill.",
+          );
+          break;
         }
-        failedCount++;
+      } else {
+        consecutiveNotFound = 0;
+      }
+
+      const hitConfiguredNoDataLimit =
+        typeof maxNoData === "number" && consecutiveNoData >= maxNoData;
+      const hitThreeNoDataFailures = consecutiveFailures >= 3;
+
+      if (hitConfiguredNoDataLimit || hitThreeNoDataFailures) {
+        const reason = hitConfiguredNoDataLimit
+          ? `Stopping backfill after ${consecutiveNoData} consecutive days without recordings.`
+          : "Stopping backfill after three consecutive data fetch failures.";
+        console.log(`\n${reason}`);
+        break;
       }
     }
   }
 
-  // Display summary statistics
+  if (capturedCount === 0 && skippedCount > 0 && failedCount === 0) {
+    console.log("✓ All snapshots up to date!");
+  }
+
   console.log(`\nSummary:`);
   console.log(`  Captured: ${capturedCount}`);
   console.log(`  Already had: ${skippedCount}`);
@@ -306,13 +366,20 @@ async function fetchMissingSnapshots() {
  * Generates time-lapse video from collected snapshots
  * Automatically detects optimal resolution and creates MP4 video
  * @async
- * @param {string} outputDir - Directory containing snapshots
+ * @param {Object} camera - Camera configuration containing snapshot directory.
+ * @param {Object} config - Full configuration for defaults.
  * @param {number} captureHour - Hour of capture time
  * @param {number} captureMinute - Minute of capture time
  * @returns {Promise<void>}
  */
-async function generateTimelapse(outputDir, captureHour, captureMinute) {
-  const files = await fs.readdir(outputDir);
+async function generateTimelapse(camera, config, captureHour, captureMinute) {
+  const snapshotDir = camera.snapshotDir || path.join(__dirname, "snapshots");
+  const timelapseDir =
+    camera.timelapseDir || path.join(path.dirname(snapshotDir), "timelapses");
+
+  await fs.mkdir(timelapseDir, { recursive: true });
+
+  const files = await fs.readdir(snapshotDir);
   const timeStr = `${String(captureHour).padStart(2, "0")}${String(captureMinute).padStart(2, "0")}`;
 
   // Filter for snapshots at the specified time
@@ -328,11 +395,6 @@ async function generateTimelapse(outputDir, captureHour, captureMinute) {
   console.log(`\nRegenerating time-lapse...`);
   console.log(`Found ${snapshots.length} snapshots`);
 
-  // Create file list for ffmpeg concat demuxer
-  const fileListPath = path.join(outputDir, "filelist.txt");
-  const fileListContent = snapshots.map((f) => `file '${f}'`).join("\n");
-  await fs.writeFile(fileListPath, fileListContent);
-
   // Extract date range for filename
   const firstDate = snapshots[0].split("_")[0];
   const lastDate = snapshots[snapshots.length - 1].split("_")[0];
@@ -343,7 +405,7 @@ async function generateTimelapse(outputDir, captureHour, captureMinute) {
   let maxHeight = 0;
 
   for (const snapshot of snapshots) {
-    const imagePath = path.join(outputDir, snapshot);
+    const imagePath = path.join(snapshotDir, snapshot);
     try {
       const dimensions = await getImageDimensions(imagePath);
       if (dimensions.width > maxWidth) {
@@ -370,11 +432,28 @@ async function generateTimelapse(outputDir, captureHour, captureMinute) {
     String(captureHour).padStart(2, "0") +
     "h" +
     String(captureMinute).padStart(2, "0");
-  const outputPath = `timelapse_${hourStr}_${firstDate}_to_${lastDate}.mp4`;
+  const outputPath = path.join(
+    timelapseDir,
+    `timelapse_${hourStr}_${firstDate}_to_${lastDate}.mp4`,
+  );
 
-  // Get video settings from environment
-  const fps = process.env.VIDEO_FPS || "10";
-  const crf = process.env.VIDEO_QUALITY || "1"; // CRF: lower = better quality
+  const fps = camera.video?.fps ?? config.videoDefaults?.fps ?? 10;
+  const crf = camera.video?.quality ?? config.videoDefaults?.quality ?? 1;
+
+  // Create file list for ffconcat demuxer with explicit frame durations
+  const fileListPath = path.join(snapshotDir, "filelist.txt");
+  const safeFps = fps > 0 ? fps : 1;
+  const frameDuration = 1 / safeFps;
+  const lines = ["ffconcat version 1.0"];
+
+  snapshots.forEach((file, index) => {
+    lines.push(`file '${file}'`);
+    if (index !== snapshots.length - 1) {
+      lines.push(`duration ${frameDuration.toFixed(6)}`);
+    }
+  });
+
+  await fs.writeFile(fileListPath, `${lines.join("\n")}\n`);
 
   return new Promise((resolve, reject) => {
     // Build ffmpeg arguments for video generation
@@ -390,12 +469,12 @@ async function generateTimelapse(outputDir, captureHour, captureMinute) {
       "-preset",
       "slow", // Slow preset for better compression
       "-crf",
-      crf, // Quality setting
+      String(crf), // Quality setting
       "-vf",
       // Scale and pad to maintain aspect ratio
       `scale=${maxWidth}:${maxHeight}:force_original_aspect_ratio=decrease,pad=${maxWidth}:${maxHeight}:(ow-iw)/2:(oh-ih)/2`,
       "-r",
-      fps, // Output frame rate
+      String(safeFps), // Output frame rate
       "-pix_fmt",
       "yuv420p", // Pixel format for compatibility
       "-y", // Overwrite output
@@ -423,7 +502,7 @@ async function generateTimelapse(outputDir, captureHour, captureMinute) {
         console.log(
           `  ${snapshots.length} days from ${firstDate} to ${lastDate}`,
         );
-        console.log(`  Resolution: ${maxWidth}x${maxHeight} @ ${fps}fps`);
+        console.log(`  Resolution: ${maxWidth}x${maxHeight} @ ${safeFps}fps`);
 
         // Clean up temporary file list
         await fs.unlink(fileListPath);
@@ -491,14 +570,22 @@ async function getImageDimensions(imagePath) {
  */
 async function main() {
   try {
-    // Fetch any missing snapshots
-    const { capturedCount, outputDir, captureHour, captureMinute } =
-      await fetchMissingSnapshots();
+    const config = await getConfig();
+    const camera = config.cameras?.[0];
 
-    // Generate time-lapse if we have snapshots
-    if (capturedCount > 0 || outputDir) {
-      await generateTimelapse(outputDir, captureHour, captureMinute);
+    if (!camera) {
+      console.error(
+        "No cameras configured. Run 'lawn-lapse setup' to select at least one camera.",
+      );
+      process.exit(1);
     }
+
+    const { captureHour, captureMinute } = await fetchMissingSnapshots(
+      config,
+      camera,
+    );
+
+    await generateTimelapse(camera, config, captureHour, captureMinute);
 
     console.log(`\n[${new Date().toISOString()}] Daily update complete!`);
   } catch (error) {
