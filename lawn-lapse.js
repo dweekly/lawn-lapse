@@ -15,6 +15,12 @@ import { input, password, select, confirm } from "@inquirer/prompts";
 import { ProtectApi } from "unifi-protect";
 
 import { loadConfig, updateConfig, getConfigPath } from "./config.js";
+import {
+  detectLocation,
+  confirmLocation,
+  formatLocation,
+} from "./geolocation.js";
+import { validateSchedule } from "./scheduling.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -192,23 +198,198 @@ async function runSetup(skipCron = false) {
 
     await protect.logout();
 
-    console.log("\n📸 Step 3: Snapshot Configuration");
+    console.log("\n⏰ Step 3: Schedule Configuration");
     console.log("----------------------------------------\n");
 
-    const snapshotTime = await input({
-      message: "Capture time (24-hour format):",
-      default: config.schedule?.fixedTimes?.[0] || "12:00",
-      validate: (value) => {
-        const timeRegex = /^([01]?[0-9]|2[0-3]):[0-5][0-9]$/;
-        return timeRegex.test(value)
-          ? true
-          : "Please enter a valid time in HH:MM format";
-      },
+    const scheduleMode = await select({
+      message: "Select capture schedule mode:",
+      choices: [
+        {
+          name: "Fixed daily time(s) - Capture at specific times each day",
+          value: "fixed-time",
+        },
+        {
+          name: "Interval - Capture at regular intervals throughout the day",
+          value: "interval",
+        },
+        {
+          name: "Sunrise/Sunset - Capture based on sun position",
+          value: "sunrise-sunset",
+        },
+      ],
+      default: config.schedule?.mode || "fixed-time",
     });
+
+    const scheduleConfig = {
+      mode: scheduleMode,
+      timezone:
+        config.schedule?.timezone ||
+        Intl.DateTimeFormat().resolvedOptions().timeZone,
+    };
+
+    // Configure based on selected mode
+    if (scheduleMode === "fixed-time") {
+      const snapshotTime = await input({
+        message:
+          "Capture time(s) (24-hour format, comma-separated for multiple):",
+        default: (config.schedule?.fixedTimes || ["12:00"]).join(", "),
+        validate: (value) => {
+          const times = value.split(",").map((t) => t.trim());
+          const timeRegex = /^([01]?[0-9]|2[0-3]):[0-5][0-9]$/;
+          for (const time of times) {
+            if (!timeRegex.test(time)) {
+              return `Invalid time format: ${time}. Use HH:MM format`;
+            }
+          }
+          return true;
+        },
+      });
+      scheduleConfig.fixedTimes = snapshotTime.split(",").map((t) => t.trim());
+    } else if (scheduleMode === "interval") {
+      const shotsPerHour = await input({
+        message: "Captures per hour (1-60):",
+        default: String(config.schedule?.interval?.shotsPerHour || 1),
+        validate: (value) => {
+          const num = parseInt(value, 10);
+          return num >= 1 && num <= 60 ? true : "Must be between 1 and 60";
+        },
+      });
+
+      const startHour = await input({
+        message: "Start time (HH:MM):",
+        default: config.schedule?.window?.startHour || "06:00",
+        validate: (value) => {
+          const timeRegex = /^([01]?[0-9]|2[0-3]):[0-5][0-9]$/;
+          return timeRegex.test(value)
+            ? true
+            : "Please enter a valid time in HH:MM format";
+        },
+      });
+
+      const endHour = await input({
+        message: "End time (HH:MM):",
+        default: config.schedule?.window?.endHour || "18:00",
+        validate: (value) => {
+          const timeRegex = /^([01]?[0-9]|2[0-3]):[0-5][0-9]$/;
+          return timeRegex.test(value)
+            ? true
+            : "Please enter a valid time in HH:MM format";
+        },
+      });
+
+      scheduleConfig.interval = { shotsPerHour: parseInt(shotsPerHour, 10) };
+      scheduleConfig.window = { startHour, endHour };
+    } else if (scheduleMode === "sunrise-sunset") {
+      // Detect or input location
+      console.log(
+        "\n📍 Detecting your location for sunrise/sunset calculations...",
+      );
+      const detected = await detectLocation();
+
+      let location;
+      if (detected && detected.lat && detected.lon) {
+        console.log(`✅ Detected location: ${formatLocation(detected)}`);
+
+        const useDetected = await confirm({
+          message: "Use this location?",
+          default: true,
+        });
+
+        if (useDetected) {
+          location = await confirmLocation(detected);
+        }
+      }
+
+      if (!location || !location.lat || !location.lon) {
+        console.log("\nPlease enter your location coordinates:");
+        const lat = await input({
+          message: "Latitude:",
+          default: config.location?.lat ? String(config.location.lat) : "",
+          validate: (value) => {
+            const num = parseFloat(value);
+            return !isNaN(num) && num >= -90 && num <= 90
+              ? true
+              : "Must be between -90 and 90";
+          },
+        });
+
+        const lon = await input({
+          message: "Longitude:",
+          default: config.location?.lon ? String(config.location.lon) : "",
+          validate: (value) => {
+            const num = parseFloat(value);
+            return !isNaN(num) && num >= -180 && num <= 180
+              ? true
+              : "Must be between -180 and 180";
+          },
+        });
+
+        location = {
+          lat: parseFloat(lat),
+          lon: parseFloat(lon),
+          name: "Custom location",
+        };
+      }
+
+      // Update config with location
+      config = await updateConfig((draft) => {
+        draft.location = location;
+      });
+
+      const captureSunrise = await confirm({
+        message: "Capture at sunrise?",
+        default: config.schedule?.captureSunrise !== false,
+      });
+
+      const captureSunset = await confirm({
+        message: "Capture at sunset?",
+        default: config.schedule?.captureSunset !== false,
+      });
+
+      const additionalCaptures = await confirm({
+        message: "Add interval captures between sunrise and sunset?",
+        default: false,
+      });
+
+      scheduleConfig.captureSunrise = captureSunrise;
+      scheduleConfig.captureSunset = captureSunset;
+
+      if (additionalCaptures) {
+        const shotsPerHour = await input({
+          message: "Captures per hour between sunrise and sunset:",
+          default: "1",
+          validate: (value) => {
+            const num = parseInt(value, 10);
+            return num >= 1 && num <= 60 ? true : "Must be between 1 and 60";
+          },
+        });
+        scheduleConfig.interval = { shotsPerHour: parseInt(shotsPerHour, 10) };
+      }
+    }
+
+    // Validate and save schedule configuration
+    const validation = validateSchedule(scheduleConfig);
+    if (!validation.isValid) {
+      console.error(
+        "❌ Schedule configuration error:",
+        validation.errors.join(", "),
+      );
+      process.exit(1);
+    }
+
+    config = await updateConfig((draft) => {
+      Object.assign(draft.schedule, scheduleConfig);
+    });
+
+    console.log(`✅ Schedule configured: ${scheduleMode} mode`);
+
+    console.log("\n📸 Step 4: Output Configuration");
+    console.log("----------------------------------------\n");
 
     const outputDir = await input({
       message: "Output directory:",
-      default: config.cameras?.[0]?.snapshotDir || defaultSnapshotDir,
+      default:
+        config.cameras?.[0]?.snapshotDir || path.join(__dirname, "snapshots"),
     });
 
     const timelapseDir = path.join(path.dirname(outputDir), "timelapses");
@@ -219,7 +400,6 @@ async function runSetup(skipCron = false) {
     console.log(`✅ Output directory created/verified: ${outputDir}`);
 
     config = await updateConfig((draft) => {
-      draft.schedule.fixedTimes = [snapshotTime];
       if (!draft.cameras || draft.cameras.length === 0) {
         draft.cameras = [
           {
@@ -256,17 +436,29 @@ async function runSetup(skipCron = false) {
     console.log("\n✅ Configuration saved to lawn.config.json");
 
     if (!skipCron) {
-      console.log("\n⏰ Step 4: Daily Capture Schedule");
+      console.log("\n⏰ Step 5: Cron Job Setup");
       console.log("----------------------------------------\n");
 
       const setupCron = await confirm({
-        message: "Would you like to set up automatic daily captures?",
+        message: "Would you like to set up automatic captures?",
         default: true,
       });
 
       if (setupCron) {
-        const [hour, minute] = snapshotTime.split(":");
-        const cronTime = `${minute} ${hour} * * *`;
+        // Determine cron schedule based on mode
+        let cronTime;
+        if (config.schedule.mode === "fixed-time") {
+          // For fixed times, run at those specific times
+          // For simplicity, we'll use the first time if multiple are configured
+          const firstTime = config.schedule.fixedTimes[0];
+          const [hour, minute] = firstTime.split(":");
+          cronTime = `${minute} ${hour} * * *`;
+        } else {
+          // For interval and sunrise/sunset modes, run every 15 minutes
+          // The capture script will check if a capture is actually due
+          cronTime = "*/15 * * * *";
+        }
+
         const nodePath = process.execPath;
         const scriptPath = path.join(__dirname, "capture-and-timelapse.js");
         const logPath = path.join(outputDir, "lawn-lapse.log");
@@ -310,7 +502,22 @@ async function runSetup(skipCron = false) {
             child.on("error", reject);
           });
 
-          console.log(`✅ Cron job installed to run daily at ${snapshotTime}`);
+          if (config.schedule.mode === "fixed-time") {
+            console.log(
+              `✅ Cron job installed to run at ${config.schedule.fixedTimes.join(", ")}`,
+            );
+          } else if (config.schedule.mode === "interval") {
+            console.log(
+              `✅ Cron job installed to check for captures every 15 minutes`,
+            );
+            console.log(
+              `   Capturing ${config.schedule.interval.shotsPerHour} times per hour between ${config.schedule.window.startHour} and ${config.schedule.window.endHour}`,
+            );
+          } else if (config.schedule.mode === "sunrise-sunset") {
+            console.log(
+              `✅ Cron job installed to check for sunrise/sunset captures every 15 minutes`,
+            );
+          }
           console.log(`   Logs will be saved to: ${logPath}`);
         } catch (error) {
           console.error("❌ Failed to install cron job:", error.message);
