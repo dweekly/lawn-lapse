@@ -8,6 +8,7 @@
   },
   "scripts": {
     "capture": "node capture-and-timelapse.js",
+    "setup:cron": "sh scripts/setup-cron.sh",
     "format": "prettier --write .",
     "lint": "eslint . --fix",
     "test": "node --test && node --check lawn-lapse.js && node --check capture-and-timelapse.js && echo '✓ Tests passed'",

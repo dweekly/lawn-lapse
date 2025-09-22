@@ -44,8 +44,8 @@ async function hasConfig() {
 function isCronInstalled() {
   try {
     const crontab = execSync("crontab -l 2>/dev/null", { encoding: "utf8" });
-    // Check for both lawn-lapse and lawn.js entries
-    return crontab.includes("lawn-lapse") || crontab.includes("lawn.js");
+    // Check for capture-and-timelapse.js entries
+    return crontab.includes("capture-and-timelapse.js");
   } catch {
     // No crontab or error reading it
     return false;
@@ -268,10 +268,10 @@ async function runSetup(skipCron = false) {
         const [hour, minute] = snapshotTime.split(":");
         const cronTime = `${minute} ${hour} * * *`;
         const nodePath = process.execPath;
-        const scriptPath = path.join(__dirname, "lawn.js");
+        const scriptPath = path.join(__dirname, "capture-and-timelapse.js");
         const logPath = path.join(outputDir, "lawn-lapse.log");
 
-        const cronCommand = `${cronTime} cd ${__dirname} && ${nodePath} ${scriptPath} >> ${logPath} 2>&1`;
+        const cronCommand = `${cronTime} ${nodePath} ${scriptPath} >> ${logPath} 2>&1`;
 
         try {
           let existingCron = "";
@@ -287,7 +287,10 @@ async function runSetup(skipCron = false) {
             .split("\n")
             .filter(
               (line) =>
-                !line.includes("lawn-lapse") && !line.includes("lawn.js"),
+                !line.includes("capture-and-timelapse.js") &&
+                !line.includes("lawn-lapse") &&
+                !line.includes("lawn.js") &&
+                !line.includes("daily-noon-update.js"),
             )
             .join("\n");
 
