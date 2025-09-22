@@ -32,7 +32,7 @@ function detectTimezone() {
 
 function createDefaultConfig() {
   return {
-    version: 1,
+    version: 2,
     schedule: {
       timezone: detectTimezone(),
       mode: "fixed-time",
@@ -44,6 +44,15 @@ function createDefaultConfig() {
         startHour: "00:00",
         endHour: "23:59",
       },
+      sunriseOffset: 0,
+      sunsetOffset: 0,
+      captureSunrise: true,
+      captureSunset: true,
+    },
+    location: {
+      lat: null,
+      lon: null,
+      name: null,
     },
     unifi: {
       host: "192.168.1.1",
@@ -105,6 +114,11 @@ function applyDefaults(rawConfig = {}) {
         : defaults.schedule.fixedTimes,
   };
 
+  const location = {
+    ...defaults.location,
+    ...(rawConfig.location || {}),
+  };
+
   const unifi = {
     ...defaults.unifi,
     ...(rawConfig.unifi || {}),
@@ -141,6 +155,7 @@ function applyDefaults(rawConfig = {}) {
   return {
     version: rawConfig.version || defaults.version,
     schedule,
+    location,
     unifi,
     cameras,
     videoDefaults,
