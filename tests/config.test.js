@@ -27,13 +27,15 @@ async function withTempConfigDir(fn) {
 test("loadConfig creates default file with baseline schema", async () => {
   await withTempConfigDir(async (dir) => {
     const config = await loadConfig();
-    assert.equal(config.version, 1);
+    assert.equal(config.version, 2);
     assert.ok(config.schedule.fixedTimes.length > 0);
     assert.equal(config.cameras.length, 0);
+    assert.ok(config.location);
+    assert.equal(config.schedule.mode, "fixed-time");
 
     const configPath = path.join(dir, "lawn.config.json");
     const raw = JSON.parse(await readFile(configPath, "utf8"));
-    assert.equal(raw.version, 1);
+    assert.equal(raw.version, 2);
     assert.ok(Array.isArray(raw.schedule.fixedTimes));
   });
 });
