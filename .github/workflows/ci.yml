@@ -67,7 +67,7 @@ jobs:
           # Test that the main module exports the expected functions
           node -e "
             import('./lawn-lapse.js').then(module => {
-              const required = ['runSetup', 'runCapture', 'runStatus', 'loadExistingConfig', 'saveConfig'];
+              const required = ['runSetup', 'runCapture', 'runStatus'];
               const missing = required.filter(fn => !module[fn]);
               if (missing.length > 0) {
                 throw new Error('Missing exports: ' + missing.join(', '));
@@ -78,3 +78,26 @@ jobs:
               process.exit(1);
             });
           "
+          # Test config module exports
+          node -e "
+            import('./config.js').then(module => {
+              const required = ['loadConfig', 'saveConfig', 'updateConfig', 'getConfigPath'];
+              const missing = required.filter(fn => !module[fn]);
+              if (missing.length > 0) {
+                throw new Error('Missing config exports: ' + missing.join(', '));
+              }
+              console.log('✓ All expected config functions are exported');
+            }).catch(e => {
+              console.error('Failed to import config.js:', e.message);
+              process.exit(1);
+            });
+          "
+          
+      - name: Test module syntax
+        run: |
+          # Just verify the modules have valid syntax, don't actually run them
+          node --check capture-and-timelapse.js
+          node --check lawn-lapse.js
+          node --check config.js
+          node --check scheduling.js
+          node --check geolocation.js
