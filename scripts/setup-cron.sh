@@ -53,8 +53,8 @@ else
     fi
 fi
 
-# Create cron entry
-CRON_ENTRY="$MINUTE $HOUR * * * $NODE_PATH $CAPTURE_SCRIPT >> $LOG_FILE 2>&1"
+# Create cron entry with PATH for homebrew
+CRON_ENTRY="$MINUTE $HOUR * * * PATH=/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin $NODE_PATH $CAPTURE_SCRIPT >> $LOG_FILE 2>&1"
 
 # Combine with existing crontab
 if [ -n "$FILTERED_CRON" ]; then
