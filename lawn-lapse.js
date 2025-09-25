@@ -463,7 +463,9 @@ async function runSetup(skipCron = false) {
         const scriptPath = path.join(__dirname, "capture-and-timelapse.js");
         const logPath = path.join(outputDir, "lawn-lapse.log");
 
-        const cronCommand = `${cronTime} ${nodePath} ${scriptPath} >> ${logPath} 2>&1`;
+        // Include PATH for homebrew and common binary locations
+        const pathEnv = "PATH=/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin";
+        const cronCommand = `${cronTime} ${pathEnv} ${nodePath} ${scriptPath} >> ${logPath} 2>&1`;
 
         try {
           let existingCron = "";
