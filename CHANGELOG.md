@@ -7,15 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Multi-Camera Support**: Select and configure multiple cameras during setup
+- **Per-Camera Directories**: Each camera gets isolated `snapshots/<camera-slug>/` and `timelapses/<camera-slug>/` directories
+- **Per-Camera Processing**: Sequential capture and timelapse generation for all configured cameras
+- **Camera Slugs**: Auto-generated URL-safe slugs from camera names for directory structure
+- **Enhanced Status Command**: Per-camera statistics and aggregated summary across all cameras
+- **Testing**: Node test coverage for configuration defaults and legacy migration
+- **Project Instructions**: Added CLAUDE.md with comprehensive guidance for Claude Code assistant
+
 ### Changed
 
 - **Configuration**: Settings now live in `lawn.config.json` with automatic migration from legacy `.env.local`
+- **Configuration Schema**: Upgraded to version 2 with cameras array supporting multiple camera configs
 - **Backfill**: Snapshot backfill walks backwards until UniFi returns no data instead of assuming a 39-day limit
-- **Outputs**: Generated videos are written to camera-specific `timelapses/` directories with per-camera defaults
-
-### Added
-
-- **Testing**: Node test coverage for configuration defaults and legacy migration
+- **Setup Flow**: Interactive camera selection with "Add another camera?" workflow
+- **Capture Pipeline**: Processes all cameras sequentially with per-camera error handling and success tracking
+- **Exit Codes**: Returns non-zero if any camera fails, enabling CI/monitoring alerts
 
 ## [0.2.1] - 2025-09-13
 

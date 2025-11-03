@@ -30,6 +30,18 @@ const args = process.argv.slice(2);
 const command = args[0];
 
 /**
+ * Creates a URL-safe slug from a camera name
+ * @param {string} name - Camera name
+ * @returns {string} Slugified name
+ */
+function createCameraSlug(name) {
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+/**
  * Checks if configuration file exists
  * @async
  * @returns {Promise<boolean>} True if .env.local exists, false otherwise
@@ -155,12 +167,17 @@ async function runSetup(skipCron = false) {
       };
     });
 
+    // Collect multiple cameras
+    const selectedCameras = [];
+    const selectedIndices = new Set();
+
+    // First camera selection
     const defaultCameraIndex = config.cameras?.[0]
       ? cameras.findIndex((camera) => camera.id === config.cameras[0].id)
       : undefined;
 
     const selectedIndex = await select({
-      message: "Select camera:",
+      message: "Select first camera:",
       choices: cameraChoices,
       default:
         typeof defaultCameraIndex === "number" && defaultCameraIndex >= 0
@@ -168,32 +185,84 @@ async function runSetup(skipCron = false) {
           : undefined,
     });
 
-    const selectedCamera = cameras[selectedIndex];
+    selectedIndices.add(selectedIndex);
+    selectedCameras.push(cameras[selectedIndex]);
     console.log(
-      `✅ Selected: ${selectedCamera.name || selectedCamera.displayName || "Camera"}`,
+      `✅ Selected: ${selectedCameras[0].name || selectedCameras[0].displayName || "Camera"}`,
     );
 
-    const defaultSnapshotDir =
-      config.cameras?.[0]?.snapshotDir || path.join(__dirname, "snapshots");
-    const defaultTimelapseDir = config.cameras?.[0]?.timelapseDir
-      ? config.cameras[0].timelapseDir
-      : path.join(path.dirname(defaultSnapshotDir), "timelapses");
+    // Additional camera selections
+    while (selectedIndices.size < cameras.length) {
+      const addAnother = await confirm({
+        message: "Add another camera?",
+        default: false,
+      });
+
+      if (!addAnother) break;
+
+      // Filter out already selected cameras and maintain original indices
+      const availableChoices = cameraChoices
+        .map((choice, index) => ({ ...choice, originalIndex: index }))
+        .filter((choice) => !selectedIndices.has(choice.originalIndex));
+
+      if (availableChoices.length === 0) {
+        console.log("No more cameras available.");
+        break;
+      }
+
+      const selected = await select({
+        message: "Select camera:",
+        choices: availableChoices.map((choice) => ({
+          name: choice.name,
+          value: choice.originalIndex,
+        })),
+      });
+
+      selectedIndices.add(selected);
+      selectedCameras.push(cameras[selected]);
+      console.log(
+        `✅ Selected: ${cameras[selected].name || cameras[selected].displayName || "Camera"}`,
+      );
+    }
+
+    console.log(`\n📸 Configuring ${selectedCameras.length} camera(s)...`);
+
+    // Configure each camera
+    const configuredCameras = [];
+    for (const camera of selectedCameras) {
+      const cameraName = camera.name || camera.displayName || "Unknown";
+      const cameraSlug = createCameraSlug(cameraName);
+
+      // Find existing config for this camera if it exists
+      const existingCamera = config.cameras?.find((c) => c.id === camera.id);
+
+      const defaultSnapshotDir = existingCamera?.snapshotDir
+        ? existingCamera.snapshotDir
+        : path.join(__dirname, "snapshots", cameraSlug);
+
+      const defaultTimelapseDir = existingCamera?.timelapseDir
+        ? existingCamera.timelapseDir
+        : path.join(__dirname, "timelapses", cameraSlug);
+
+      configuredCameras.push({
+        id: camera.id,
+        name: cameraName,
+        snapshotDir: defaultSnapshotDir,
+        timelapseDir: defaultTimelapseDir,
+        video: {
+          fps: existingCamera?.video?.fps ?? config.videoDefaults?.fps ?? 10,
+          quality:
+            existingCamera?.video?.quality ??
+            config.videoDefaults?.quality ??
+            1,
+        },
+      });
+
+      console.log(`  ${cameraName}: ${defaultSnapshotDir}`);
+    }
 
     config = await updateConfig((draft) => {
-      draft.cameras = [
-        {
-          id: selectedCamera.id,
-          name: selectedCamera.name || selectedCamera.displayName,
-          snapshotDir: defaultSnapshotDir,
-          timelapseDir: defaultTimelapseDir,
-          video: {
-            fps: config.cameras?.[0]?.video?.fps ?? draft.videoDefaults.fps,
-            quality:
-              config.cameras?.[0]?.video?.quality ??
-              draft.videoDefaults.quality,
-          },
-        },
-      ];
+      draft.cameras = configuredCameras;
     });
 
     await protect.logout();
@@ -383,55 +452,13 @@ async function runSetup(skipCron = false) {
 
     console.log(`✅ Schedule configured: ${scheduleMode} mode`);
 
-    console.log("\n📸 Step 4: Output Configuration");
-    console.log("----------------------------------------\n");
-
-    const outputDir = await input({
-      message: "Output directory:",
-      default:
-        config.cameras?.[0]?.snapshotDir || path.join(__dirname, "snapshots"),
-    });
-
-    const timelapseDir = path.join(path.dirname(outputDir), "timelapses");
-
-    await fs.mkdir(timelapseDir, { recursive: true }).catch(() => {});
-
-    await fs.mkdir(outputDir, { recursive: true });
-    console.log(`✅ Output directory created/verified: ${outputDir}`);
-
-    config = await updateConfig((draft) => {
-      if (!draft.cameras || draft.cameras.length === 0) {
-        draft.cameras = [
-          {
-            id: selectedCamera.id,
-            name: selectedCamera.name || selectedCamera.displayName,
-            snapshotDir: outputDir,
-            timelapseDir,
-            video: {
-              fps: draft.videoDefaults.fps,
-              quality: draft.videoDefaults.quality,
-            },
-          },
-        ];
-      } else {
-        draft.cameras[0].snapshotDir = outputDir;
-        draft.cameras[0].timelapseDir = timelapseDir;
-      }
-    });
-
-    const fps = 10;
-    const videoQuality = 1;
-
-    config = await updateConfig((draft) => {
-      draft.videoDefaults.fps = fps;
-      draft.videoDefaults.quality = videoQuality;
-      if (draft.cameras?.[0]) {
-        draft.cameras[0].video = {
-          fps,
-          quality: videoQuality,
-        };
-      }
-    });
+    // Create output directories for all cameras
+    console.log("\n📁 Creating output directories...");
+    for (const camera of config.cameras) {
+      await fs.mkdir(camera.snapshotDir, { recursive: true });
+      await fs.mkdir(camera.timelapseDir, { recursive: true });
+      console.log(`✅ ${camera.name}: ${camera.snapshotDir}`);
+    }
 
     console.log("\n✅ Configuration saved to lawn.config.json");
 
@@ -461,7 +488,11 @@ async function runSetup(skipCron = false) {
 
         const nodePath = process.execPath;
         const scriptPath = path.join(__dirname, "capture-and-timelapse.js");
-        const logPath = path.join(outputDir, "lawn-lapse.log");
+        const logDir = path.join(__dirname, "logs");
+        const logPath = path.join(logDir, "lawn-lapse.log");
+
+        // Ensure logs directory exists
+        await fs.mkdir(logDir, { recursive: true });
 
         // Include PATH for homebrew and common binary locations
         const pathEnv = "PATH=/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin";
@@ -578,102 +609,114 @@ async function runStatus() {
   console.log("=".repeat(60));
 
   const config = await loadConfig();
-  const primaryCamera = config.cameras?.[0];
+  const cameras = config.cameras || [];
+
+  if (cameras.length === 0) {
+    console.log("\n⚠️  No cameras configured. Run 'lawn-lapse' to set up.");
+    return;
+  }
+
   const snapshotTime = config.schedule?.fixedTimes?.[0] || "12:00";
   const [captureHour, captureMinute] = snapshotTime
     .split(":")
     .map((n) => parseInt(n, 10));
   const timeStr = `${String(captureHour).padStart(2, "0")}${String(captureMinute).padStart(2, "0")}`;
-  const snapshotDir =
-    primaryCamera?.snapshotDir || path.join(__dirname, "snapshots");
-  const timelapseDir =
-    primaryCamera?.timelapseDir ||
-    path.join(path.dirname(snapshotDir), "timelapses");
 
-  try {
-    const files = await fs.readdir(snapshotDir);
-    const jpgFiles = files
-      .filter((f) => f.endsWith(".jpg") && f.includes(`_${timeStr}.jpg`))
-      .sort();
+  // Show per-camera status
+  console.log(`\n📷 Cameras (${cameras.length} configured):`);
+  console.log("=".repeat(60));
 
-    if (jpgFiles.length > 0) {
-      const firstDate = jpgFiles[0].split("_")[0];
-      const lastDate = jpgFiles[jpgFiles.length - 1].split("_")[0];
+  let totalSnapshots = 0;
+  let totalTimelapses = 0;
 
-      console.log("\n📸 Snapshots:");
-      console.log(`  Total: ${jpgFiles.length} ${snapshotTime} snapshots`);
-      console.log(`  Range: ${firstDate} to ${lastDate}`);
-      console.log(`  Days: ${jpgFiles.length} days of footage`);
+  for (const camera of cameras) {
+    console.log(`\n📹 ${camera.name} (${camera.id})`);
+    console.log("-".repeat(60));
+    console.log(`  Snapshots: ${camera.snapshotDir}`);
+    console.log(`  Timelapses: ${camera.timelapseDir}`);
 
-      const dates = jpgFiles.map((f) => f.split("_")[0]);
-      const gaps = [];
-      for (let i = 1; i < dates.length; i++) {
-        const curr = new Date(dates[i]);
-        const prev = new Date(dates[i - 1]);
-        const diffDays = Math.floor((curr - prev) / (1000 * 60 * 60 * 24));
-        if (diffDays > 1) {
-          gaps.push(
-            `${dates[i - 1]} to ${dates[i]} (${diffDays - 1} days missing)`,
-          );
+    // Check snapshots
+    try {
+      const files = await fs.readdir(camera.snapshotDir);
+      const jpgFiles = files
+        .filter((f) => f.endsWith(".jpg") && f.includes(`_${timeStr}.jpg`))
+        .sort();
+
+      if (jpgFiles.length > 0) {
+        totalSnapshots += jpgFiles.length;
+        const firstDate = jpgFiles[0].split("_")[0];
+        const lastDate = jpgFiles[jpgFiles.length - 1].split("_")[0];
+
+        console.log(`\n  📸 Snapshots: ${jpgFiles.length} at ${snapshotTime}`);
+        console.log(`     Range: ${firstDate} to ${lastDate}`);
+
+        // Check for gaps
+        const dates = jpgFiles.map((f) => f.split("_")[0]);
+        const gaps = [];
+        for (let i = 1; i < dates.length; i++) {
+          const curr = new Date(dates[i]);
+          const prev = new Date(dates[i - 1]);
+          const diffDays = Math.floor((curr - prev) / (1000 * 60 * 60 * 24));
+          if (diffDays > 1) {
+            gaps.push(`${dates[i - 1]} to ${dates[i]} (${diffDays - 1} days)`);
+          }
         }
-      }
 
-      if (gaps.length > 0) {
-        console.log(`  ⚠️  Gaps found: ${gaps.length}`);
-        gaps.slice(0, 3).forEach((gap) => console.log(`     - ${gap}`));
-        if (gaps.length > 3) {
-          console.log(`     ... and ${gaps.length - 3} more`);
+        if (gaps.length > 0) {
+          console.log(`     ⚠️  ${gaps.length} gap(s)`);
+          gaps.slice(0, 2).forEach((gap) => console.log(`        - ${gap}`));
+          if (gaps.length > 2) {
+            console.log(`        ... and ${gaps.length - 2} more`);
+          }
+        } else {
+          console.log("     ✓ No gaps");
         }
       } else {
-        console.log("  ✓ No gaps in sequence");
+        console.log("\n  📸 Snapshots: None found");
       }
-    } else {
-      console.log("\n📸 Snapshots: No snapshots found");
+    } catch {
+      console.log("\n  📸 Snapshots: Directory not accessible");
     }
-  } catch {
-    console.log("\n📸 Snapshots: Directory not found");
-  }
 
-  console.log("\n🎬 Time-lapses:");
-  try {
-    const files = await fs.readdir(timelapseDir);
-    const timelapses = files.filter(
-      (f) => f.startsWith("timelapse") && f.endsWith(".mp4"),
-    );
-
-    if (timelapses.length > 0) {
-      const timelapseStats = await Promise.all(
-        timelapses.map(async (file) => {
-          const stats = await fs.stat(path.join(timelapseDir, file));
-          return { file, mtime: stats.mtime, size: stats.size };
-        }),
+    // Check timelapses
+    try {
+      const files = await fs.readdir(camera.timelapseDir);
+      const timelapses = files.filter(
+        (f) => f.startsWith("timelapse") && f.endsWith(".mp4"),
       );
 
-      timelapseStats.sort((a, b) => b.mtime - a.mtime);
+      if (timelapses.length > 0) {
+        totalTimelapses += timelapses.length;
+        const timelapseStats = await Promise.all(
+          timelapses.map(async (file) => {
+            const stats = await fs.stat(path.join(camera.timelapseDir, file));
+            return { file, mtime: stats.mtime, size: stats.size };
+          }),
+        );
 
-      console.log(`  Found: ${timelapses.length} videos`);
-      console.log("  Latest:");
-      timelapseStats.slice(0, 3).forEach((t) => {
-        const sizeMB = (t.size / 1024 / 1024).toFixed(1);
-        console.log(`    - ${t.file} (${sizeMB}MB)`);
-      });
+        timelapseStats.sort((a, b) => b.mtime - a.mtime);
+        const latest = timelapseStats[0];
+        const sizeMB = (latest.size / 1024 / 1024).toFixed(1);
 
-      const latest = timelapseStats[0].file;
-      const match = latest.match(
-        /_(\d{2}h\d{2})_(\d{4}-\d{2}-\d{2})_to_(\d{4}-\d{2}-\d{2})/,
-      );
-      if (match) {
-        const [, , startDate, endDate] = match;
-        const start = new Date(startDate);
-        const end = new Date(endDate);
-        const days = Math.floor((end - start) / (1000 * 60 * 60 * 24)) + 1;
-        console.log(`    ${days} days from ${startDate} to ${endDate}`);
+        console.log(`\n  🎬 Time-lapses: ${timelapses.length} video(s)`);
+        console.log(`     Latest: ${latest.file} (${sizeMB}MB)`);
+
+        const match = latest.file.match(
+          /_(\d{2}h\d{2})_(\d{4}-\d{2}-\d{2})_to_(\d{4}-\d{2}-\d{2})/,
+        );
+        if (match) {
+          const [, , startDate, endDate] = match;
+          const start = new Date(startDate);
+          const end = new Date(endDate);
+          const days = Math.floor((end - start) / (1000 * 60 * 60 * 24)) + 1;
+          console.log(`     Covers: ${days} days (${startDate} to ${endDate})`);
+        }
+      } else {
+        console.log("\n  🎬 Time-lapses: None found");
       }
-    } else {
-      console.log("  No time-lapse videos found");
+    } catch {
+      console.log("\n  🎬 Time-lapses: Directory not accessible");
     }
-  } catch {
-    console.log("  Error checking time-lapses");
   }
 
   console.log("\n⏰ Cron Job:");
@@ -715,21 +758,15 @@ async function runStatus() {
   console.log("\n" + "=".repeat(60));
   console.log("📊 Summary:");
 
-  try {
-    const files = await fs.readdir(snapshotDir);
-    const snapshotCount = files.filter(
-      (f) => f.endsWith(".jpg") && f.includes(`_${timeStr}.jpg`),
-    ).length;
-
-    if (snapshotCount > 0) {
-      console.log(
-        `  ✓ System operational with ${snapshotCount} days of footage`,
-      );
-    } else {
-      console.log("  ✗ No snapshots captured yet");
-    }
-  } catch {
-    console.log("  ✗ Snapshot directory unavailable");
+  if (totalSnapshots > 0) {
+    console.log(
+      `  ✓ System operational: ${cameras.length} camera(s), ${totalSnapshots} total snapshot(s), ${totalTimelapses} time-lapse(s)`,
+    );
+  } else {
+    console.log(
+      `  ⚠️  ${cameras.length} camera(s) configured but no snapshots captured yet`,
+    );
+    console.log("     Run: lawn-lapse to capture snapshots");
   }
 }
 

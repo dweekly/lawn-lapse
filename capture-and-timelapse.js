@@ -564,35 +564,99 @@ async function getImageDimensions(imagePath) {
 
 /**
  * Main execution function
- * Orchestrates snapshot fetching and time-lapse generation
+ * Orchestrates snapshot fetching and time-lapse generation for all cameras
  * @async
  * @returns {Promise<void>}
  */
 async function main() {
-  try {
-    const config = await getConfig();
-    const camera = config.cameras?.[0];
+  const startTime = new Date();
+  console.log(
+    `\n[${startTime.toISOString()}] Starting capture for all cameras...`,
+  );
 
-    if (!camera) {
-      console.error(
-        "No cameras configured. Run 'lawn-lapse setup' to select at least one camera.",
-      );
-      process.exit(1);
-    }
+  const config = await getConfig();
+  const cameras = config.cameras || [];
 
-    const { captureHour, captureMinute } = await fetchMissingSnapshots(
-      config,
-      camera,
+  if (cameras.length === 0) {
+    console.error(
+      "No cameras configured. Run 'lawn-lapse' to select at least one camera.",
     );
+    process.exit(1);
+  }
 
-    await generateTimelapse(camera, config, captureHour, captureMinute);
+  console.log(`\n📷 Processing ${cameras.length} camera(s)...\n`);
 
-    console.log(`\n[${new Date().toISOString()}] Daily update complete!`);
-  } catch (error) {
-    console.error("Error:", error.message);
-    if (isVerbose) {
-      console.error(error.stack);
+  const results = [];
+
+  for (let i = 0; i < cameras.length; i++) {
+    const camera = cameras[i];
+    const cameraNum = i + 1;
+
+    console.log(`\n${"=".repeat(60)}`);
+    console.log(
+      `📹 Camera ${cameraNum}/${cameras.length}: ${camera.name} (${camera.id})`,
+    );
+    console.log(`${"=".repeat(60)}`);
+
+    try {
+      const { captureHour, captureMinute } = await fetchMissingSnapshots(
+        config,
+        camera,
+      );
+
+      await generateTimelapse(camera, config, captureHour, captureMinute);
+
+      results.push({
+        camera: camera.name,
+        success: true,
+        error: null,
+      });
+
+      console.log(`✅ ${camera.name} completed successfully`);
+    } catch (error) {
+      results.push({
+        camera: camera.name,
+        success: false,
+        error: error.message,
+      });
+
+      console.error(`❌ ${camera.name} failed: ${error.message}`);
+      if (isVerbose) {
+        console.error(error.stack);
+      }
+
+      // Continue with next camera instead of exiting
+      console.log(`\nContinuing with remaining cameras...`);
     }
+  }
+
+  // Print summary
+  const endTime = new Date();
+  const duration = Math.round((endTime - startTime) / 1000);
+
+  console.log(`\n${"=".repeat(60)}`);
+  console.log(`📊 Capture Summary`);
+  console.log(`${"=".repeat(60)}`);
+
+  const successful = results.filter((r) => r.success).length;
+  const failed = results.filter((r) => !r.success).length;
+
+  console.log(`\n✅ Successful: ${successful}/${cameras.length}`);
+  if (failed > 0) {
+    console.log(`❌ Failed: ${failed}/${cameras.length}`);
+    console.log("\nFailed cameras:");
+    results
+      .filter((r) => !r.success)
+      .forEach((r) => {
+        console.log(`  - ${r.camera}: ${r.error}`);
+      });
+  }
+
+  console.log(`\n⏱️  Duration: ${duration} seconds`);
+  console.log(`[${endTime.toISOString()}] All cameras processed!`);
+
+  // Exit with error code if any camera failed
+  if (failed > 0) {
     process.exit(1);
   }
 }

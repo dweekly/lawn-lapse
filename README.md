@@ -121,14 +121,16 @@ On first run, `lawn` will guide you through:
    - Shows all available cameras with model info
    - Indicates offline cameras
    - Displays resolution capabilities
+   - **Multi-camera support**: Select multiple cameras for parallel tracking
+   - Each camera gets its own snapshot and timelapse directories
 
 3. **Snapshot Settings**
    - Capture time (24-hour format, defaults to 12:00)
-   - Output directory (defaults to ./snapshots)
+   - Output directories auto-generated per camera (e.g., `./snapshots/front-yard/`)
 
 4. **Automation Setup**
    - Optional cron job installation
-   - Automatic daily captures at specified time
+   - Automatic daily captures at specified time for all cameras
 
 ### Configuration File
 
@@ -136,7 +138,7 @@ Settings are stored in `lawn.config.json`:
 
 ```json
 {
-  "version": 1,
+  "version": 2,
   "unifi": {
     "host": "192.168.1.1",
     "username": "admin",
@@ -144,14 +146,22 @@ Settings are stored in `lawn.config.json`:
   },
   "schedule": {
     "timezone": "America/Los_Angeles",
+    "mode": "fixed-time",
     "fixedTimes": ["12:00"]
   },
   "cameras": [
     {
       "id": "abc123",
       "name": "Front Yard",
-      "snapshotDir": "./snapshots",
-      "timelapseDir": "./timelapses",
+      "snapshotDir": "./snapshots/front-yard",
+      "timelapseDir": "./timelapses/front-yard",
+      "video": { "fps": 10, "quality": 1 }
+    },
+    {
+      "id": "def456",
+      "name": "Back Yard",
+      "snapshotDir": "./snapshots/back-yard",
+      "timelapseDir": "./timelapses/back-yard",
       "video": { "fps": 10, "quality": 1 }
     }
   ]
@@ -180,12 +190,19 @@ Settings are stored in `lawn.config.json`:
 
 ```
 lawn-lapse/
-├── snapshots/              # Daily snapshot images
-│   ├── 2024-01-01_1200.jpg
-│   ├── 2024-01-02_1200.jpg
-│   └── ...
-├── timelapses/             # Generated MP4 videos
-│   └── timelapse_12h00_2024-01-01_to_2024-03-15.mp4
+├── snapshots/              # Per-camera snapshot directories
+│   ├── front-yard/
+│   │   ├── 2024-01-01_1200.jpg
+│   │   ├── 2024-01-02_1200.jpg
+│   │   └── ...
+│   └── back-yard/
+│       ├── 2024-01-01_1200.jpg
+│       └── ...
+├── timelapses/             # Per-camera timelapse directories
+│   ├── front-yard/
+│   │   └── timelapse_12h00_2024-01-01_to_2024-03-15.mp4
+│   └── back-yard/
+│       └── timelapse_12h00_2024-01-01_to_2024-03-15.mp4
 ├── lawn.config.json        # Project configuration
 └── logs/lawn-lapse.log     # Cron job logs
 ```
@@ -213,24 +230,45 @@ Shows:
 🎥 Lawn Lapse Status Report
 ============================================================
 
-📸 Snapshots:
-  Total: 45 noon snapshots
-  Range: 2024-01-01 to 2024-02-14
-  Days: 45 days of footage
-  ✓ No gaps in sequence
+📷 Cameras (2 configured):
+============================================================
 
-🎬 Time-lapses:
-  Found: 3 videos
-  Latest:
-    - timelapse_12h00_2024-01-01_to_2024-02-14.mp4 (8.3MB)
+📹 Front Yard (abc123)
+------------------------------------------------------------
+  Snapshots: ./snapshots/front-yard
+  Timelapses: ./timelapses/front-yard
+
+  📸 Snapshots: 45 at 12:00
+     Range: 2024-01-01 to 2024-02-14
+     ✓ No gaps
+
+  🎬 Time-lapses: 1 video(s)
+     Latest: timelapse_12h00_2024-01-01_to_2024-02-14.mp4 (8.3MB)
+     Covers: 45 days (2024-01-01 to 2024-02-14)
+
+📹 Back Yard (def456)
+------------------------------------------------------------
+  Snapshots: ./snapshots/back-yard
+  Timelapses: ./timelapses/back-yard
+
+  📸 Snapshots: 42 at 12:00
+     Range: 2024-01-04 to 2024-02-14
+     ✓ No gaps
+
+  🎬 Time-lapses: 1 video(s)
+     Latest: timelapse_12h00_2024-01-04_to_2024-02-14.mp4 (7.1MB)
+     Covers: 42 days (2024-01-04 to 2024-02-14)
 
 ⏰ Cron Job:
   ✓ Active: Daily at 12:00
-  Last run: 2024-02-14 12:00:00 (2 hours ago)
 
 🔐 Authentication:
   ✓ Credentials configured
-  Using username/password authentication
+  Username: admin
+
+============================================================
+📊 Summary:
+  ✓ System operational: 2 camera(s), 87 total snapshot(s), 2 time-lapse(s)
 ```
 
 ## 🛠 Troubleshooting
