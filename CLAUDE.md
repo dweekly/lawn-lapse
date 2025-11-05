@@ -122,17 +122,17 @@ lawn help             # Display help information
       "name": "Front Yard",
       "snapshotDir": "./snapshots/front-yard",
       "timelapseDir": "./timelapses/front-yard",
-      "video": { "fps": 10, "quality": 1 }
+      "video": { "fps": 24, "quality": 1, "interpolate": true }
     },
     {
       "id": "def456",
       "name": "Back Yard",
       "snapshotDir": "./snapshots/back-yard",
       "timelapseDir": "./timelapses/back-yard",
-      "video": { "fps": 10, "quality": 1 }
+      "video": { "fps": 24, "quality": 1, "interpolate": true }
     }
   ],
-  "videoDefaults": { "fps": 10, "quality": 1 },
+  "videoDefaults": { "fps": 24, "quality": 1, "interpolate": true },
   "history": {
     "maxDays": null, // null = unlimited (up to 365 days)
     "stopAfterConsecutiveNoData": 7
@@ -204,7 +204,7 @@ lawn-lapse/
 
 1. **Resolution Detection**: Scans first snapshot to determine video dimensions
 2. **Smart Scaling**: Maintains aspect ratio while maximizing quality
-3. **ffmpeg Settings**: H.264 codec, slow preset, configurable FPS (default 10)
+3. **ffmpeg Settings**: H.264 codec, slow preset, motion interpolation, configurable FPS (default 24)
 4. **Filename Format**: `timelapse_HHhMM_YYYY-MM-DD_to_YYYY-MM-DD.mp4`
 
 ### Cron Job Setup

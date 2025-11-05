@@ -27,7 +27,7 @@ Watch your lawn, garden, construction project, or any outdoor space transform ov
 - 🔐 **Simple Authentication** - Uses username/password for easy setup
 - ⏰ **Cron Integration** - Runs automatically via cron jobs
 - 📊 **Progress Tracking** - Shows detailed progress during snapshot fetching
-- 🎯 **Smart Defaults** - Optimized settings out of the box (10fps, best quality)
+- 🎯 **Smart Defaults** - Optimized settings out of the box (24fps with interpolation, best quality)
 
 ## 📋 Prerequisites
 
@@ -155,14 +155,14 @@ Settings are stored in `lawn.config.json`:
       "name": "Front Yard",
       "snapshotDir": "./snapshots/front-yard",
       "timelapseDir": "./timelapses/front-yard",
-      "video": { "fps": 10, "quality": 1 }
+      "video": { "fps": 24, "quality": 1, "interpolate": true }
     },
     {
       "id": "def456",
       "name": "Back Yard",
       "snapshotDir": "./snapshots/back-yard",
       "timelapseDir": "./timelapses/back-yard",
-      "video": { "fps": 10, "quality": 1 }
+      "video": { "fps": 24, "quality": 1, "interpolate": true }
     }
   ]
 }
@@ -184,7 +184,7 @@ Settings are stored in `lawn.config.json`:
 1. **Auto-detection**: Finds the highest resolution from your snapshots
 2. **Smart Scaling**: Maintains aspect ratio while maximizing quality
 3. **Optimized Encoding**: Uses H.264 with slow preset for best compression
-4. **Configurable FPS**: Default 10fps for smooth playback
+4. **Configurable FPS**: Default 24fps with motion interpolation for cinematic smooth playback
 
 ### File Organization
 

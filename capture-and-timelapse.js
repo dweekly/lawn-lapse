@@ -437,8 +437,10 @@ async function generateTimelapse(camera, config, captureHour, captureMinute) {
     `timelapse_${hourStr}_${firstDate}_to_${lastDate}.mp4`,
   );
 
-  const fps = camera.video?.fps ?? config.videoDefaults?.fps ?? 10;
+  const fps = camera.video?.fps ?? config.videoDefaults?.fps ?? 24;
   const crf = camera.video?.quality ?? config.videoDefaults?.quality ?? 1;
+  const interpolate =
+    camera.video?.interpolate ?? config.videoDefaults?.interpolate ?? true;
 
   // Create file list for ffconcat demuxer with explicit frame durations
   const fileListPath = path.join(snapshotDir, "filelist.txt");
@@ -456,6 +458,14 @@ async function generateTimelapse(camera, config, captureHour, captureMinute) {
   await fs.writeFile(fileListPath, `${lines.join("\n")}\n`);
 
   return new Promise((resolve, reject) => {
+    // Build video filter chain
+    let videoFilter = `scale=${maxWidth}:${maxHeight}:force_original_aspect_ratio=decrease,pad=${maxWidth}:${maxHeight}:(ow-iw)/2:(oh-ih)/2`;
+
+    // Add motion interpolation for smoother playback
+    if (interpolate) {
+      videoFilter = `minterpolate=fps=${safeFps}:mi_mode=mci:mc_mode=aobmc:me_mode=bidir:vsbmc=1,${videoFilter}`;
+    }
+
     // Build ffmpeg arguments for video generation
     const ffmpegArgs = [
       "-f",
@@ -471,8 +481,7 @@ async function generateTimelapse(camera, config, captureHour, captureMinute) {
       "-crf",
       String(crf), // Quality setting
       "-vf",
-      // Scale and pad to maintain aspect ratio
-      `scale=${maxWidth}:${maxHeight}:force_original_aspect_ratio=decrease,pad=${maxWidth}:${maxHeight}:(ow-iw)/2:(oh-ih)/2`,
+      videoFilter,
       "-r",
       String(safeFps), // Output frame rate
       "-pix_fmt",
@@ -502,7 +511,9 @@ async function generateTimelapse(camera, config, captureHour, captureMinute) {
         console.log(
           `  ${snapshots.length} days from ${firstDate} to ${lastDate}`,
         );
-        console.log(`  Resolution: ${maxWidth}x${maxHeight} @ ${safeFps}fps`);
+        console.log(
+          `  Resolution: ${maxWidth}x${maxHeight} @ ${safeFps}fps${interpolate ? " (interpolated)" : ""}`,
+        );
 
         // Clean up temporary file list
         await fs.unlink(fileListPath);

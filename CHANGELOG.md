@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Motion Interpolation**: Smooth frame interpolation using ffmpeg's minterpolate filter for cinematic quality
+- **Configurable Interpolation**: New `interpolate` setting in video config (enabled by default)
 - **Multi-Camera Support**: Select and configure multiple cameras during setup
 - **Per-Camera Directories**: Each camera gets isolated `snapshots/<camera-slug>/` and `timelapses/<camera-slug>/` directories
 - **Per-Camera Processing**: Sequential capture and timelapse generation for all configured cameras
@@ -19,6 +21,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Default FPS**: Increased from 10fps to 24fps for smoother, more cinematic playback
+- **Video Quality**: Enhanced with motion interpolation between frames for fluid motion
 - **Configuration**: Settings now live in `lawn.config.json` with automatic migration from legacy `.env.local`
 - **Configuration Schema**: Upgraded to version 2 with cameras array supporting multiple camera configs
 - **Backfill**: Snapshot backfill walks backwards until UniFi returns no data instead of assuming a 39-day limit

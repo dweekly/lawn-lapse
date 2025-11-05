@@ -61,8 +61,9 @@ function createDefaultConfig() {
     },
     cameras: [],
     videoDefaults: {
-      fps: 10,
+      fps: 24,
       quality: 1,
+      interpolate: true,
     },
     notifications: {
       frequency: "never",
@@ -91,6 +92,7 @@ function applyCameraDefaults(camera) {
     video: {
       fps: camera.video?.fps,
       quality: camera.video?.quality,
+      interpolate: camera.video?.interpolate,
     },
   };
 }
@@ -147,6 +149,8 @@ function applyDefaults(rawConfig = {}) {
           video: {
             fps: withDefaults.video.fps ?? videoDefaults.fps,
             quality: withDefaults.video.quality ?? videoDefaults.quality,
+            interpolate:
+              withDefaults.video.interpolate ?? videoDefaults.interpolate,
           },
         };
       })

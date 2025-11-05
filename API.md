@@ -120,6 +120,7 @@ interface CameraConfig {
   video: {
     fps: number;
     quality: number;
+    interpolate: boolean;
   };
 }
 
@@ -137,7 +138,7 @@ interface LawnConfig {
     window: { startHour: string; endHour: string };
   };
   cameras: CameraConfig[];
-  videoDefaults: { fps: number; quality: number };
+  videoDefaults: { fps: number; quality: number; interpolate: boolean };
   notifications: { frequency: string };
   history: { maxDays: number | null; stopAfterConsecutiveNoData: number };
 }
@@ -163,9 +164,11 @@ Convenience helper that loads, clones, mutates, and saves configuration while re
 import { updateConfig } from "./config.js";
 
 await updateConfig((draft) => {
-  draft.videoDefaults.fps = 12;
+  draft.videoDefaults.fps = 30;
+  draft.videoDefaults.interpolate = false;
   if (draft.cameras[0]) {
-    draft.cameras[0].video.fps = 12;
+    draft.cameras[0].video.fps = 30;
+    draft.cameras[0].video.interpolate = false;
   }
 });
 ```
@@ -249,7 +252,7 @@ The following environment variables are used when set:
 | `CAMERA_NAME`    | Camera display name   | `Unknown Camera` |
 | `SNAPSHOT_TIME`  | Capture time (HH:MM)  | `12:00`          |
 | `OUTPUT_DIR`     | Output directory      | `./snapshots`    |
-| `VIDEO_FPS`      | Video frame rate      | `10`             |
+| `VIDEO_FPS`      | Video frame rate      | `24`             |
 | `VIDEO_QUALITY`  | Video quality (CRF)   | `1`              |
 
 ## Usage Examples
