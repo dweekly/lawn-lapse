@@ -100,19 +100,79 @@ async function runSetup(skipCron = false) {
   }
 
   try {
-    // Only pre-fill credentials if they exist and are non-default
-    // This ensures new users see all prompts in order
+    // Test existing credentials if they exist
     const hasConfiguredCredentials =
       config.unifi?.password && config.unifi.password !== "";
 
-    let host = hasConfiguredCredentials ? config.unifi.host : null;
-    let username = hasConfiguredCredentials ? config.unifi.username : null;
-    let pass = hasConfiguredCredentials ? config.unifi.password : null;
+    let host = null;
+    let username = null;
+    let pass = null;
     let authenticated = false;
     let protect = null;
 
     console.log("📹 Step 1: UniFi Protect Configuration");
     console.log("----------------------------------------\n");
+
+    // If we have existing credentials, try them first
+    if (hasConfiguredCredentials) {
+      try {
+        console.log("Testing existing credentials...");
+        protect = new ProtectApi();
+
+        // Capture API errors during testing
+        const originalConsoleError = console.error;
+        const errorLogs = [];
+        console.error = (...args) => {
+          errorLogs.push(args.join(' '));
+        };
+
+        try {
+          await protect.login(config.unifi.host, config.unifi.username, config.unifi.password);
+        } finally {
+          console.error = originalConsoleError;
+        }
+
+        // Check if any errors were logged during login
+        if (errorLogs.length > 0) {
+          const errorText = errorLogs.join(' ');
+          if (errorText.includes("Insufficient privileges")) {
+            throw new Error("Insufficient privileges");
+          } else if (errorText.includes("Invalid credentials") || errorText.includes("Unauthorized")) {
+            throw new Error("Invalid credentials");
+          } else if (errorText.includes("ENOTFOUND") || errorText.includes("ECONNREFUSED")) {
+            throw new Error("Connection failed");
+          } else {
+            throw new Error("Authentication failed");
+          }
+        }
+
+        // Credentials work!
+        authenticated = true;
+        host = config.unifi.host;
+        username = config.unifi.username;
+        pass = config.unifi.password;
+        console.log("✅ Authentication successful!\n");
+      } catch (error) {
+        // Credentials don't work, clear them and prompt user
+        let errorMessage = error.message;
+        if (errorMessage.includes("Insufficient privileges")) {
+          errorMessage = `Insufficient privileges. Please ensure this user has "Full Management" role in UniFi Protect settings.`;
+        } else if (errorMessage.includes("Invalid credentials") || errorMessage.includes("Unauthorized")) {
+          errorMessage = "Invalid username or password.";
+        } else if (errorMessage.includes("ENOTFOUND") || errorMessage.includes("ECONNREFUSED") || errorMessage.includes("Connection failed")) {
+          errorMessage = `Unable to connect to ${config.unifi.host}. Please check the hostname/IP address and ensure the UniFi Protect controller is running and accessible.`;
+        } else {
+          errorMessage = `Authentication failed: ${errorMessage}`;
+        }
+        console.log(`❌ ${errorMessage}`);
+        console.log("Please enter your credentials:\n");
+
+        // Clear bad password from config
+        config = await updateConfig((draft) => {
+          draft.unifi.password = "";
+        });
+      }
+    }
 
     while (!authenticated) {
       if (!host) {
@@ -139,10 +199,33 @@ async function runSetup(skipCron = false) {
 
       try {
         protect = new ProtectApi();
-        await protect.login(host, username, pass);
 
-        // Verify we can actually access the system
-        await protect.getBootstrap();
+        // Capture API errors during authentication
+        const originalConsoleError = console.error;
+        const errorLogs = [];
+        console.error = (...args) => {
+          errorLogs.push(args.join(' '));
+        };
+
+        try {
+          await protect.login(host, username, pass);
+        } finally {
+          console.error = originalConsoleError;
+        }
+
+        // Check if any errors were logged during login
+        if (errorLogs.length > 0) {
+          const errorText = errorLogs.join(' ');
+          if (errorText.includes("Insufficient privileges")) {
+            throw new Error("Insufficient privileges");
+          } else if (errorText.includes("Invalid credentials") || errorText.includes("Unauthorized")) {
+            throw new Error("Invalid credentials");
+          } else if (errorText.includes("ENOTFOUND") || errorText.includes("ECONNREFUSED")) {
+            throw new Error("Connection failed");
+          } else {
+            throw new Error("Authentication failed");
+          }
+        }
 
         authenticated = true;
         console.log("✅ Authentication successful!\n");
@@ -155,7 +238,7 @@ async function runSetup(skipCron = false) {
         // Provide helpful error messages for common issues
         let errorMessage = error.message;
 
-        if (errorMessage.includes("ENOTFOUND") || errorMessage.includes("ECONNREFUSED")) {
+        if (errorMessage.includes("ENOTFOUND") || errorMessage.includes("ECONNREFUSED") || errorMessage.includes("Connection failed")) {
           errorMessage = `Unable to connect to ${host}. Please check the hostname/IP address and ensure the UniFi Protect controller is running and accessible.`;
         } else if (errorMessage.includes("Insufficient privileges")) {
           errorMessage = `Insufficient privileges. Please ensure this user has "Full Management" role in UniFi Protect settings.`;
@@ -163,6 +246,8 @@ async function runSetup(skipCron = false) {
           errorMessage = "Invalid username or password.";
         } else if (errorMessage.includes("timeout")) {
           errorMessage = `Connection timeout. Please check your network connection and ensure ${host} is accessible.`;
+        } else {
+          errorMessage = `Authentication failed: ${errorMessage}`;
         }
 
         console.log(`❌ ${errorMessage}\n`);
