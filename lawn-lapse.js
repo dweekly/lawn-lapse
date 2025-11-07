@@ -141,6 +141,7 @@ async function runSetup(skipCron = false) {
         protect = new ProtectApi();
         await protect.login(host, username, pass);
         authenticated = true;
+        console.log("✅ Authentication successful!\n");
         config = await updateConfig((draft) => {
           draft.unifi.host = host;
           draft.unifi.username = username;
