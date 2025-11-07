@@ -5,7 +5,7 @@
  * @license MIT
  */
 
-import fetch from "node-fetch";
+// Note: Using Node.js 18+ native fetch API (no import needed)
 import fs from "fs/promises";
 import path from "path";
 import { fileURLToPath } from "url";
