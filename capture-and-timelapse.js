@@ -589,10 +589,23 @@ async function main() {
   const cameras = config.cameras || [];
 
   if (cameras.length === 0) {
-    console.error(
-      "No cameras configured. Run 'lawn-lapse' to select at least one camera.",
-    );
-    process.exit(1);
+    console.log("\n👋 Welcome to Lawn Lapse!\n");
+    console.log("No cameras configured yet. Let's get you set up...\n");
+
+    // Dynamically import and run setup
+    const { runSetup } = await import("./lawn-lapse.js");
+    await runSetup();
+
+    // Reload config after setup
+    const updatedConfig = await getConfig();
+    if (!updatedConfig.cameras || updatedConfig.cameras.length === 0) {
+      console.log("\nSetup cancelled or no cameras selected. Exiting.");
+      process.exit(0);
+    }
+
+    console.log("\n✅ Setup complete! Continuing with capture...\n");
+    cameras.length = 0;
+    cameras.push(...updatedConfig.cameras);
   }
 
   console.log(`\n📷 Processing ${cameras.length} camera(s)...\n`);

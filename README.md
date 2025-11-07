@@ -43,43 +43,27 @@ Watch your lawn, garden, construction project, or any outdoor space transform ov
 
 ## 🚀 Quick Start
 
-### Option 1: Run with npx (Recommended)
-
 No installation needed! Just run:
 
 ```bash
 npx lawn-lapse
 ```
 
-This will:
+That's it! The first time you run it, you'll be guided through an interactive setup that will:
 
-1. Guide you through setup on first run
-2. Fetch historical snapshots
-3. Generate your first time-lapse video
+1. Connect to your UniFi Protect system
+2. Select your camera(s)
+3. Fetch historical snapshots (as far back as your NVR has them!)
+4. Generate your first time-lapse video
 
-### Option 2: Global Installation
+**Want to install it?** You can optionally install globally:
 
 ```bash
-# Install globally
 npm install -g lawn-lapse
-
-# Run the command
-lawn
+lawn  # Now you can just type "lawn"!
 ```
 
-### Option 3: Clone Repository
-
-```bash
-# Clone the repository
-git clone https://github.com/dweekly/lawn-lapse.git
-cd lawn-lapse
-
-# Install dependencies
-npm install
-
-# Run the CLI
-npm exec lawn
-```
+**For developers:** Clone the repo and run `npm install && npm start`
 
 ## 🎯 Usage
 

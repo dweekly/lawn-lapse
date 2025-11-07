@@ -4,10 +4,15 @@
   "description": "Capture daily snapshots from UniFi Protect camera and create time-lapse videos",
   "type": "module",
   "bin": {
-    "lawn-lapse": "lawn-lapse.js"
+    "lawn-lapse": "lawn-lapse.js",
+    "lawn": "lawn-lapse.js"
   },
   "scripts": {
-    "capture": "node capture-and-timelapse.js",
+    "start": "node lawn-lapse.js",
+    "lawn": "node lawn-lapse.js",
+    "capture": "node lawn-lapse.js",
+    "status": "node lawn-lapse.js status",
+    "cron": "node lawn-lapse.js cron",
     "setup:cron": "sh scripts/setup-cron.sh",
     "format": "prettier --write .",
     "lint": "eslint . --fix",
