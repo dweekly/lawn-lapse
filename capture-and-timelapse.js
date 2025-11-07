@@ -14,7 +14,7 @@ import { spawn } from "child_process";
 import path from "path";
 import { fileURLToPath } from "url";
 
-import { loadConfig } from "./config.js";
+import { loadConfigIfExists } from "./config.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -22,7 +22,7 @@ const __dirname = path.dirname(__filename);
 let cachedConfig;
 async function getConfig() {
   if (!cachedConfig) {
-    cachedConfig = await loadConfig();
+    cachedConfig = await loadConfigIfExists();
   }
   return cachedConfig;
 }

@@ -1,5 +1,6 @@
 import fs from "fs/promises";
 import path from "path";
+import os from "os";
 import { fileURLToPath } from "url";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -7,7 +8,10 @@ const __dirname = path.dirname(__filename);
 
 function getBaseDir() {
   const envDir = process.env.LAWN_LAPSE_CONFIG_DIR;
-  return envDir ? path.resolve(envDir) : process.cwd();
+  if (envDir) return path.resolve(envDir);
+
+  // Use ~/lawn-lapse as the default base directory
+  return path.join(os.homedir(), "lawn-lapse");
 }
 
 function getConfigPath() {
@@ -82,7 +86,7 @@ function applyCameraDefaults(camera) {
   const timelapseDir =
     candidateTimelapseDir && candidateTimelapseDir !== snapshotDir
       ? candidateTimelapseDir
-      : path.join(path.dirname(snapshotDir), "timelapses");
+      : path.join(path.dirname(snapshotDir), "videos");
 
   return {
     id: camera.id || "",
@@ -250,7 +254,7 @@ async function migrateLegacyEnv() {
   }
 }
 
-async function loadConfig() {
+async function loadConfigIfExists() {
   const configPath = getConfigPath();
   try {
     const fileContent = await fs.readFile(configPath, "utf8");
@@ -260,19 +264,36 @@ async function loadConfig() {
       throw error;
     }
 
+    // Try legacy migration
     const migrated = await migrateLegacyEnv();
     if (migrated) {
       return migrated;
     }
 
-    const defaults = applyDefaults(createDefaultConfig());
-    await saveConfig(defaults);
-    return defaults;
+    // No config exists
+    return null;
   }
 }
 
+async function loadConfig() {
+  const config = await loadConfigIfExists();
+  if (config) {
+    return config;
+  }
+
+  // Create and save default config
+  const defaults = applyDefaults(createDefaultConfig());
+  await saveConfig(defaults);
+  return defaults;
+}
+
 async function saveConfig(config) {
+  const baseDir = getBaseDir();
   const configPath = getConfigPath();
+
+  // Ensure base directory exists
+  await fs.mkdir(baseDir, { recursive: true });
+
   const serialized = JSON.stringify(config, null, 2);
   await fs.writeFile(configPath, `${serialized}\n`);
 }
@@ -287,8 +308,12 @@ async function updateConfig(mutator) {
 
 export {
   loadConfig,
+  loadConfigIfExists,
   saveConfig,
   updateConfig,
   getConfigPath,
   getLegacyEnvPath,
+  getBaseDir,
+  createDefaultConfig,
+  applyDefaults,
 };

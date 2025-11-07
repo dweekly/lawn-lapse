@@ -15,7 +15,15 @@ import { spawn, execSync } from "child_process";
 import { input, password, select, confirm } from "@inquirer/prompts";
 import { ProtectApi } from "unifi-protect";
 
-import { loadConfig, updateConfig, getConfigPath } from "./config.js";
+import {
+  loadConfig,
+  loadConfigIfExists,
+  updateConfig,
+  getConfigPath,
+  getBaseDir,
+  createDefaultConfig,
+  applyDefaults,
+} from "./config.js";
 import {
   detectLocation,
   confirmLocation,
@@ -82,9 +90,13 @@ function isCronInstalled() {
 async function runSetup(skipCron = false) {
   console.log("🚀 Welcome to Lawn Lapse Setup!\n");
 
-  let config = await loadConfig();
+  // Load existing config if it exists (returns null if not)
+  let config = await loadConfigIfExists();
   if (config) {
     console.log("📝 Found existing configuration, using as defaults.\n");
+  } else {
+    // Create in-memory defaults (don't save until user provides info)
+    config = applyDefaults(createDefaultConfig());
   }
 
   try {
@@ -239,14 +251,15 @@ async function runSetup(skipCron = false) {
 
       // Find existing config for this camera if it exists
       const existingCamera = config.cameras?.find((c) => c.id === camera.id);
+      const baseDir = getBaseDir();
 
       const defaultSnapshotDir = existingCamera?.snapshotDir
         ? existingCamera.snapshotDir
-        : path.join(__dirname, "snapshots", cameraSlug);
+        : path.join(baseDir, "snapshots", cameraSlug);
 
       const defaultTimelapseDir = existingCamera?.timelapseDir
         ? existingCamera.timelapseDir
-        : path.join(__dirname, "timelapses", cameraSlug);
+        : path.join(baseDir, "videos", cameraSlug);
 
       configuredCameras.push({
         id: camera.id,
@@ -492,7 +505,8 @@ async function runSetup(skipCron = false) {
 
         const nodePath = process.execPath;
         const scriptPath = path.join(__dirname, "capture-and-timelapse.js");
-        const logDir = path.join(__dirname, "logs");
+        const baseDir = getBaseDir();
+        const logDir = path.join(baseDir, "logs");
         const logPath = path.join(logDir, "lawn-lapse.log");
 
         // Ensure logs directory exists
@@ -637,7 +651,7 @@ async function runStatus() {
     console.log(`\n📹 ${camera.name} (${camera.id})`);
     console.log("-".repeat(60));
     console.log(`  Snapshots: ${camera.snapshotDir}`);
-    console.log(`  Timelapses: ${camera.timelapseDir}`);
+    console.log(`  Videos: ${camera.timelapseDir}`);
 
     // Check snapshots
     try {
@@ -810,7 +824,12 @@ Subsequent runs will capture snapshots and update the time-lapse video.
     }
 
     const configExists = await hasConfig();
-    let config = await loadConfig();
+    let config = await loadConfigIfExists();
+
+    // If no config exists, create in-memory defaults (don't save yet)
+    if (!config) {
+      config = applyDefaults(createDefaultConfig());
+    }
 
     const missingFields = [];
     if (!config.unifi?.host) missingFields.push("UniFi host");
