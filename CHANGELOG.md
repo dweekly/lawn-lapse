@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2025-11-07
+
 ### Added
 
 - **Motion Interpolation**: Smooth frame interpolation using ffmpeg's minterpolate filter for cinematic quality
@@ -16,19 +18,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Per-Camera Processing**: Sequential capture and timelapse generation for all configured cameras
 - **Camera Slugs**: Auto-generated URL-safe slugs from camera names for directory structure
 - **Enhanced Status Command**: Per-camera statistics and aggregated summary across all cameras
+- **Advanced Scheduling**: Three scheduling modes (fixed-time, interval, sunrise-sunset) with timezone support
+- **Sunrise/Sunset Support**: Capture based on sun position with automatic location detection
+- **Location Detection**: Auto-detect coordinates via IP geolocation with manual fallback
+- **Schedule Validation**: Runtime validation of schedule configuration with helpful error messages
 - **Testing**: Node test coverage for configuration defaults and legacy migration
 - **Project Instructions**: Added CLAUDE.md with comprehensive guidance for Claude Code assistant
 
 ### Changed
 
 - **Default FPS**: Increased from 10fps to 24fps for smoother, more cinematic playback
-- **Video Quality**: Enhanced with motion interpolation between frames for fluid motion
+- **Video Quality**: Enhanced with motion interpolation between frames for fluid motion (18% better compression)
 - **Configuration**: Settings now live in `lawn.config.json` with automatic migration from legacy `.env.local`
 - **Configuration Schema**: Upgraded to version 2 with cameras array supporting multiple camera configs
-- **Backfill**: Snapshot backfill walks backwards until UniFi returns no data instead of assuming a 39-day limit
+- **Backfill**: Snapshot backfill walks backwards until UniFi returns no data instead of assuming 39-day limit
 - **Setup Flow**: Interactive camera selection with "Add another camera?" workflow
 - **Capture Pipeline**: Processes all cameras sequentially with per-camera error handling and success tracking
 - **Exit Codes**: Returns non-zero if any camera fails, enabling CI/monitoring alerts
+- **Cron Jobs**: Adjusted for schedule modes - every 15 min check for interval/sunrise-sunset modes
+
+### Technical
+
+- Motion interpolation uses mci mode with aobmc and bidirectional motion estimation
+- Interpolated 24fps videos are smaller than 10fps originals despite 2.4x more frames
+- Config system supports deep merging of defaults with per-camera overrides
+- Scheduling system generates time slots dynamically based on mode and timezone
 
 ## [0.2.1] - 2025-09-13
 

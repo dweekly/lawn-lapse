@@ -18,14 +18,19 @@ Captures daily snapshots at your chosen time and creates beautiful time-lapse vi
 
 Watch your lawn, garden, construction project, or any outdoor space transform over time with automatically generated time-lapse videos.
 
+[![Lawn Lapse Demo](https://img.youtube.com/vi/2yz4Vk8ADh0/maxresdefault.jpg)](https://youtu.be/2yz4Vk8ADh0)
+
+**[▶️ Watch the demo on YouTube](https://youtu.be/2yz4Vk8ADh0)** - 109 days of lawn evolution captured with 24fps motion interpolation
+
 ## ✨ Features
 
 - 📸 **Smart Setup** - Auto-detects configuration and guides through setup on first run
-- 🔄 **Historical Backfill** - Fetches up to 39 days of historical footage from UniFi Protect
-- 🎬 **Automatic Time-lapse** - Creates MP4 videos from collected snapshots with smart resolution detection
+- 🎥 **Multi-Camera Support** - Track multiple cameras with isolated snapshots and timelapses
+- 🎬 **Motion Interpolation** - Cinematic 24fps with smooth frame blending for professional results
+- 🔄 **Smart Historical Backfill** - Automatically fetches historical footage until recordings run out
 - 💾 **Permanent Archive** - Stores snapshots locally forever (beyond NVR retention limits)
 - 🔐 **Simple Authentication** - Uses username/password for easy setup
-- ⏰ **Cron Integration** - Runs automatically via cron jobs
+- ⏰ **Advanced Scheduling** - Fixed times, intervals, or sunrise/sunset based captures
 - 📊 **Progress Tracking** - Shows detailed progress during snapshot fetching
 - 🎯 **Smart Defaults** - Optimized settings out of the box (24fps with interpolation, best quality)
 
