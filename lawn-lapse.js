@@ -140,6 +140,10 @@ async function runSetup(skipCron = false) {
       try {
         protect = new ProtectApi();
         await protect.login(host, username, pass);
+
+        // Verify we can actually access the system
+        await protect.getBootstrap();
+
         authenticated = true;
         console.log("✅ Authentication successful!\n");
         config = await updateConfig((draft) => {
@@ -148,9 +152,20 @@ async function runSetup(skipCron = false) {
           draft.unifi.password = pass;
         });
       } catch (error) {
-        console.log(
-          `❌ Authentication failed: ${error.message}. Let's try again.\n`,
-        );
+        // Provide helpful error messages for common issues
+        let errorMessage = error.message;
+
+        if (errorMessage.includes("ENOTFOUND") || errorMessage.includes("ECONNREFUSED")) {
+          errorMessage = `Unable to connect to ${host}. Please check the hostname/IP address and ensure the UniFi Protect controller is running and accessible.`;
+        } else if (errorMessage.includes("Insufficient privileges")) {
+          errorMessage = `Insufficient privileges. Please ensure this user has "Full Management" role in UniFi Protect settings.`;
+        } else if (errorMessage.includes("Invalid credentials") || errorMessage.includes("Unauthorized")) {
+          errorMessage = "Invalid username or password.";
+        } else if (errorMessage.includes("timeout")) {
+          errorMessage = `Connection timeout. Please check your network connection and ensure ${host} is accessible.`;
+        }
+
+        console.log(`❌ ${errorMessage}\n`);
         pass = null;
         config = await updateConfig((draft) => {
           draft.unifi.password = "";
@@ -161,7 +176,6 @@ async function runSetup(skipCron = false) {
     console.log("\n📷 Step 2: Camera Selection");
     console.log("----------------------------------------\n");
 
-    await protect.getBootstrap();
     const cameras = protect?.bootstrap?.cameras ?? [];
     if (cameras.length === 0) {
       console.log("⚠️  No cameras found on this system.");
