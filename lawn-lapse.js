@@ -7,7 +7,8 @@
  * @license MIT
  */
 
-import fs from "fs/promises";
+import fs from "fs";
+import fsp from "fs/promises";
 import path from "path";
 import { fileURLToPath } from "url";
 import { spawn, execSync } from "child_process";
@@ -87,16 +88,19 @@ async function runSetup(skipCron = false) {
   }
 
   try {
-    let host = config.unifi?.host;
-    let username = config.unifi?.username;
-    let pass = config.unifi?.password;
+    // Only pre-fill credentials if they exist and are non-default
+    // This ensures new users see all prompts in order
+    const hasConfiguredCredentials =
+      config.unifi?.password && config.unifi.password !== "";
+
+    let host = hasConfiguredCredentials ? config.unifi.host : null;
+    let username = hasConfiguredCredentials ? config.unifi.username : null;
+    let pass = hasConfiguredCredentials ? config.unifi.password : null;
     let authenticated = false;
     let protect = null;
 
-    if (!host || !username || !pass) {
-      console.log("📹 Step 1: UniFi Protect Configuration");
-      console.log("----------------------------------------\n");
-    }
+    console.log("📹 Step 1: UniFi Protect Configuration");
+    console.log("----------------------------------------\n");
 
     while (!authenticated) {
       if (!host) {
@@ -455,8 +459,8 @@ async function runSetup(skipCron = false) {
     // Create output directories for all cameras
     console.log("\n📁 Creating output directories...");
     for (const camera of config.cameras) {
-      await fs.mkdir(camera.snapshotDir, { recursive: true });
-      await fs.mkdir(camera.timelapseDir, { recursive: true });
+      await fsp.mkdir(camera.snapshotDir, { recursive: true });
+      await fsp.mkdir(camera.timelapseDir, { recursive: true });
       console.log(`✅ ${camera.name}: ${camera.snapshotDir}`);
     }
 
@@ -492,7 +496,7 @@ async function runSetup(skipCron = false) {
         const logPath = path.join(logDir, "lawn-lapse.log");
 
         // Ensure logs directory exists
-        await fs.mkdir(logDir, { recursive: true });
+        await fsp.mkdir(logDir, { recursive: true });
 
         // Include PATH for homebrew and common binary locations
         const pathEnv = "PATH=/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin";
@@ -847,10 +851,15 @@ Subsequent runs will capture snapshots and update the time-lapse video.
   }
 }
 
-// Only run main function if this is the entry point
-if (import.meta.url === `file://${process.argv[1]}`) {
-  main();
-}
-
 // Export functions for programmatic use
 export { runSetup, runCapture, runStatus };
+
+// Only run main function if this is the entry point (not being imported)
+// Resolve both paths to handle symlinks (used by npm bin)
+const scriptPath = fileURLToPath(import.meta.url);
+const argPath = process.argv[1] ? fs.realpathSync(process.argv[1]) : null;
+const isMain = argPath && argPath === scriptPath;
+
+if (isMain) {
+  main();
+}
