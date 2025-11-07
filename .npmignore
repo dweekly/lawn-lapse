@@ -1,0 +1,29 @@
+# User configuration files (should never be published)
+lawn.config.json
+.env
+.env.local
+.env.*.local
+
+# Output directories
+snapshots/
+timelapses/
+exports/
+backup/
+logs/
+
+# Test files
+test-*.jpg
+test-*.mp4
+
+# Development files
+.git/
+.github/
+.claude/
+.vscode/
+.idea/
+
+# Temporary files
+*.tmp
+*.temp
+temp/
+tmp/

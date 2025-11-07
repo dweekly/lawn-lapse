@@ -7,7 +7,7 @@ const __dirname = path.dirname(__filename);
 
 function getBaseDir() {
   const envDir = process.env.LAWN_LAPSE_CONFIG_DIR;
-  return envDir ? path.resolve(envDir) : __dirname;
+  return envDir ? path.resolve(envDir) : process.cwd();
 }
 
 function getConfigPath() {
