@@ -139,12 +139,15 @@ async function runSetup(skipCron = false) {
             throw new Error("Insufficient privileges");
           } else if (errorText.includes("Invalid credentials") || errorText.includes("Unauthorized")) {
             throw new Error("Invalid credentials");
-          } else if (errorText.includes("ENOTFOUND") || errorText.includes("ECONNREFUSED")) {
+          } else if (errorText.includes("ENOTFOUND") || errorText.includes("ECONNREFUSED") || errorText.includes("ETIMEDOUT") || errorText.includes("Unable to connect to the Protect controller") || errorText.includes("taking too long to respond")) {
             throw new Error("Connection failed");
           } else {
             throw new Error("Authentication failed");
           }
         }
+
+        // Fetch camera list after successful authentication
+        await protect.getBootstrap();
 
         // Credentials work!
         authenticated = true;
@@ -159,16 +162,23 @@ async function runSetup(skipCron = false) {
           errorMessage = `Insufficient privileges. Please ensure this user has "Full Management" role in UniFi Protect settings.`;
         } else if (errorMessage.includes("Invalid credentials") || errorMessage.includes("Unauthorized")) {
           errorMessage = "Invalid username or password.";
-        } else if (errorMessage.includes("ENOTFOUND") || errorMessage.includes("ECONNREFUSED") || errorMessage.includes("Connection failed")) {
+        } else if (errorMessage.includes("ENOTFOUND") || errorMessage.includes("ECONNREFUSED") || errorMessage.includes("ETIMEDOUT") || errorMessage.includes("Connection failed")) {
           errorMessage = `Unable to connect to ${config.unifi.host}. Please check the hostname/IP address and ensure the UniFi Protect controller is running and accessible.`;
+        } else if (errorMessage === "Authentication failed") {
+          errorMessage = "Unable to authenticate. Please check your credentials and try again.";
         } else {
           errorMessage = `Authentication failed: ${errorMessage}`;
         }
         console.log(`❌ ${errorMessage}`);
         console.log("Please enter your credentials:\n");
 
-        // Clear bad password from config
+        // Clear bad credentials from config (including host for connection errors)
         config = await updateConfig((draft) => {
+          // For connection errors, clear the host too since it's likely wrong
+          if (errorMessage.includes("Unable to connect")) {
+            draft.unifi.host = "";
+          }
+          draft.unifi.username = "";
           draft.unifi.password = "";
         });
       }
@@ -194,13 +204,14 @@ async function runSetup(skipCron = false) {
         pass = await password({
           message: "Password:",
           mask: "*",
+          validate: (value) => (value ? true : "Password is required"),
         });
       }
 
       try {
         protect = new ProtectApi();
 
-        // Capture API errors during authentication
+        // Capture API errors during authentication AND bootstrap
         const originalConsoleError = console.error;
         const errorLogs = [];
         console.error = (...args) => {
@@ -209,22 +220,29 @@ async function runSetup(skipCron = false) {
 
         try {
           await protect.login(host, username, pass);
+          // Fetch camera list after successful login
+          await protect.getBootstrap();
         } finally {
           console.error = originalConsoleError;
         }
 
-        // Check if any errors were logged during login
+        // Check if any ACTUAL errors were logged during login or bootstrap
         if (errorLogs.length > 0) {
           const errorText = errorLogs.join(' ');
+
+          // Print what we captured so we can see what's happening
+          console.log('\n[DEBUG] Captured API output during authentication:');
+          errorLogs.forEach(log => console.log('  ', log));
+          console.log();
+
           if (errorText.includes("Insufficient privileges")) {
             throw new Error("Insufficient privileges");
           } else if (errorText.includes("Invalid credentials") || errorText.includes("Unauthorized")) {
             throw new Error("Invalid credentials");
-          } else if (errorText.includes("ENOTFOUND") || errorText.includes("ECONNREFUSED")) {
+          } else if (errorText.includes("ENOTFOUND") || errorText.includes("ECONNREFUSED") || errorText.includes("ETIMEDOUT") || errorText.includes("Unable to connect to the Protect controller") || errorText.includes("taking too long to respond")) {
             throw new Error("Connection failed");
-          } else {
-            throw new Error("Authentication failed");
           }
+          // If there are logs but no specific error patterns, proceed (likely just verbose logging)
         }
 
         authenticated = true;
@@ -238,7 +256,7 @@ async function runSetup(skipCron = false) {
         // Provide helpful error messages for common issues
         let errorMessage = error.message;
 
-        if (errorMessage.includes("ENOTFOUND") || errorMessage.includes("ECONNREFUSED") || errorMessage.includes("Connection failed")) {
+        if (errorMessage.includes("ENOTFOUND") || errorMessage.includes("ECONNREFUSED") || errorMessage.includes("ETIMEDOUT") || errorMessage.includes("Connection failed")) {
           errorMessage = `Unable to connect to ${host}. Please check the hostname/IP address and ensure the UniFi Protect controller is running and accessible.`;
         } else if (errorMessage.includes("Insufficient privileges")) {
           errorMessage = `Insufficient privileges. Please ensure this user has "Full Management" role in UniFi Protect settings.`;
@@ -246,13 +264,19 @@ async function runSetup(skipCron = false) {
           errorMessage = "Invalid username or password.";
         } else if (errorMessage.includes("timeout")) {
           errorMessage = `Connection timeout. Please check your network connection and ensure ${host} is accessible.`;
+        } else if (errorMessage === "Authentication failed") {
+          errorMessage = "Unable to authenticate. Please check your credentials and try again.";
         } else {
           errorMessage = `Authentication failed: ${errorMessage}`;
         }
 
         console.log(`❌ ${errorMessage}\n`);
+        host = null;
+        username = null;
         pass = null;
         config = await updateConfig((draft) => {
+          draft.unifi.host = "";
+          draft.unifi.username = "";
           draft.unifi.password = "";
         });
       }
