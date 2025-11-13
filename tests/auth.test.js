@@ -1,82 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { testAuthentication, getErrorMessage } from "../auth.js";
-
-// Mock ProtectApi class
-class MockProtectApi {
-  constructor(scenario) {
-    this.scenario = scenario;
-  }
-
-  async login(host, username, password) {
-    const originalConsoleError = console.error;
-
-    switch (this.scenario) {
-      case "CONNECTION_FAILED_ENOTFOUND":
-        console.error(
-          `${host}: API error: ENOTFOUND - Unable to resolve hostname`,
-        );
-        break;
-
-      case "CONNECTION_FAILED_ECONNREFUSED":
-        console.error(
-          `${host}: API error: ECONNREFUSED - Connection refused`,
-        );
-        break;
-
-      case "INSUFFICIENT_PRIVILEGES":
-        console.error(
-          `${host}: API error: Insufficient privileges - User lacks required permissions`,
-        );
-        break;
-
-      case "INVALID_CREDENTIALS":
-        console.error(`${host}: API error: Invalid credentials - Unauthorized`);
-        break;
-
-      case "TIMEOUT":
-        console.error(`${host}: API error: Connection timeout`);
-        break;
-
-      case "SUCCESS":
-        // No errors logged
-        break;
-
-      default:
-        console.error(`${host}: API error: Unknown error`);
-    }
-
-    console.error = originalConsoleError;
-  }
-}
-
-// Helper to mock unifi-protect module
-async function withMockedAuth(scenario, fn) {
-  // Store original module
-  const originalModule = await import("unifi-protect");
-
-  // Replace ProtectApi in the module
-  const mockModule = {
-    ProtectApi: class extends MockProtectApi {
-      constructor() {
-        super(scenario);
-      }
-    },
-  };
-
-  // Note: This is a simplified mock approach for testing
-  // In a real test, we'd use a proper module mocking library
-  return await fn();
-}
+import { getErrorMessage } from "../auth.js";
 
 test("testAuthentication - bad IP (ENOTFOUND)", async () => {
-  // Mock the ProtectApi to simulate ENOTFOUND error
-  const originalProtectApi = (await import("unifi-protect")).ProtectApi;
-
-  // Create a mock that logs ENOTFOUND error
-  global.mockProtectApiScenario = "CONNECTION_FAILED_ENOTFOUND";
-
-  // For this test, we'll test the categorization logic directly
+  // Test the categorization logic directly
   const errorLogs = [
     "192.168.999.999: API error: ENOTFOUND - Unable to resolve hostname",
   ];
