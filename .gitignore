@@ -68,3 +68,4 @@ test-*.mp4
 
 # Git
 .git/
+*.tgz

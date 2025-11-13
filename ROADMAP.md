@@ -58,6 +58,24 @@
 - Expand README/API docs and `AGENTS.md` to cover new config schema, notification setup, and logging locations.
 - Provide upgrade notes highlighting migration steps and new commands.
 
+## Phase 6: Precision Timing with OCR
+
+1. **Temporal Window Capture**
+   - Fetch a few seconds of video before and after the target capture time (e.g., ±5 seconds around 12:00:00)
+   - Extract frames at sub-second intervals to ensure coverage of the exact target moment
+2. **OCR-Based Frame Selection**
+   - Use OCR (tesseract.js or similar) to read timestamp overlays from camera frames
+   - Parse timestamps and select the frame closest to the requested time (e.g., exactly "12:00:00" not "11:59:57")
+   - Fall back to middle frame if OCR fails or no overlay is present
+3. **Configuration Options**
+   - Add `precisionTiming` config option (enabled/disabled per camera or globally)
+   - Configure OCR region of interest to focus on timestamp overlay location
+   - Set acceptable time deviation threshold (e.g., ±2 seconds)
+4. **Performance Considerations**
+   - Cache OCR engine initialization to avoid startup overhead on every capture
+   - Limit temporal window size to balance precision vs. storage/processing cost
+   - Document OCR dependency installation (tesseract binary)
+
 ## Open Questions
 
 - Preferred storage for config (JSON file vs. `.env` + nested JSON).
