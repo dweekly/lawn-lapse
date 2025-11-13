@@ -15,6 +15,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 
 import { loadConfigIfExists } from "./config.js";
+import { generateDailySlots } from "./scheduling.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -196,11 +197,6 @@ async function fetchMissingSnapshots(config, camera) {
     process.exit(1);
   }
 
-  const snapshotTime = config.schedule.fixedTimes?.[0] || "12:00";
-  const [captureHour, captureMinute] = snapshotTime
-    .split(":")
-    .map((n) => parseInt(n, 10));
-
   const client = new UniFiProtectClient(config);
   const cameraName = camera.name || "Unknown Camera";
   const outputDir = camera.snapshotDir || path.join(__dirname, "snapshots");
@@ -210,7 +206,29 @@ async function fetchMissingSnapshots(config, camera) {
     config.schedule.timezone ||
     Intl.DateTimeFormat().resolvedOptions().timeZone ||
     "UTC";
-  console.log(`Snapshot cadence: ${snapshotTime} ${timezone}`);
+
+  // Display schedule information
+  const scheduleMode = config.schedule.mode || "fixed-time";
+  if (scheduleMode === "fixed-time") {
+    const times = config.schedule.fixedTimes || ["12:00"];
+    console.log(`Schedule: ${times.join(", ")} ${timezone}`);
+  } else if (scheduleMode === "interval") {
+    const shotsPerHour = config.schedule.interval?.shotsPerHour || 1;
+    const startHour = config.schedule.window?.startHour || "00:00";
+    const endHour = config.schedule.window?.endHour || "23:59";
+    console.log(
+      `Schedule: ${shotsPerHour} shots/hour, ${startHour}-${endHour} ${timezone}`,
+    );
+  } else if (scheduleMode === "sunrise-sunset") {
+    const shotsPerHour = config.schedule.interval?.shotsPerHour || 1;
+    const captureSunrise = config.schedule.captureSunrise ?? true;
+    const captureSunset = config.schedule.captureSunset ?? true;
+    const events = [];
+    if (captureSunrise) events.push("sunrise");
+    if (captureSunset) events.push("sunset");
+    if (shotsPerHour > 0) events.push(`${shotsPerHour} shots/hour between`);
+    console.log(`Schedule: ${events.join(" + ")} ${timezone}`);
+  }
 
   await fs.mkdir(outputDir, { recursive: true });
 
@@ -230,18 +248,16 @@ async function fetchMissingSnapshots(config, camera) {
   let attemptCount = 0;
 
   const files = await fs.readdir(outputDir).catch(() => []);
-  const timeSuffix = `${String(captureHour).padStart(2, "0")}${String(captureMinute).padStart(2, "0")}`;
-  const existingSnapshots = new Set(
-    files.filter((f) => f.endsWith(`_${timeSuffix}.jpg`)),
-  );
+  const existingSnapshots = new Set(files.filter((f) => f.endsWith(".jpg")));
 
   console.log(
     maxDays
-      ? `Checking for missing ${captureHour}:${String(captureMinute).padStart(2, "0")} snapshots (up to ${maxDays} days back)...`
+      ? `Checking for missing snapshots (up to ${maxDays} days back)...`
       : `Checking historical snapshots until no recordings remain (max 365 days)...`,
   );
 
   const newSnapshots = [];
+  const capturedTimeSlots = new Set(); // Track unique time slots for timelapse generation
 
   for (let dayOffset = 0; ; dayOffset++) {
     if (maxDays !== null && dayOffset >= maxDays) {
@@ -257,83 +273,115 @@ async function fetchMissingSnapshots(config, camera) {
 
     const targetDate = new Date();
     targetDate.setDate(targetDate.getDate() - dayOffset);
-    targetDate.setHours(captureHour, captureMinute, 0, 0);
+    targetDate.setHours(0, 0, 0, 0); // Start at midnight for the day
 
     if (targetDate.getTime() > now.getTime()) {
       continue;
     }
 
-    const dateStr = targetDate.toISOString().split("T")[0];
-    const timeStr = `${String(captureHour).padStart(2, "0")}${String(captureMinute).padStart(2, "0")}`;
-    const filename = `${dateStr}_${timeStr}.jpg`;
-    const outputPath = path.join(outputDir, filename);
-
-    if (existingSnapshots.has(filename)) {
-      skippedCount++;
+    // Generate all capture slots for this day using the scheduling system
+    let slots;
+    try {
+      slots = generateDailySlots(targetDate, config.schedule, config.location);
+    } catch (error) {
+      console.error(
+        `Error generating slots for ${targetDate.toISOString().split("T")[0]}: ${error.message}`,
+      );
       continue;
     }
 
-    attemptCount++;
-    const prefix = `  [${attemptCount}] ${dateStr}: `;
+    // Filter out future slots (for today only)
+    const validSlots = slots.filter((slot) => slot.getTime() <= now.getTime());
 
-    try {
-      if (!client.isConnected) {
-        console.log(
-          `${prefix}Connecting to ${config.unifi.host || "UniFi Protect"}...`,
-        );
+    if (validSlots.length === 0) {
+      continue;
+    }
+
+    let dayHadAnyData = false;
+
+    // Process each slot for this day
+    for (const slot of validSlots) {
+      const dateStr = slot.toISOString().split("T")[0];
+      const timeStr = `${String(slot.getHours()).padStart(2, "0")}${String(slot.getMinutes()).padStart(2, "0")}`;
+      const filename = `${dateStr}_${timeStr}.jpg`;
+      const outputPath = path.join(outputDir, filename);
+
+      // Track this time slot for timelapse generation
+      capturedTimeSlots.add(timeStr);
+
+      if (existingSnapshots.has(filename)) {
+        skippedCount++;
+        dayHadAnyData = true;
+        continue;
       }
 
-      const videoBuffer = await client.exportVideo(
-        camera.id,
-        targetDate.getTime(),
-        1000,
-      );
-      await client.extractFrameFromVideo(videoBuffer, outputPath);
-      console.log(`${prefix}✓`);
-      capturedCount++;
-      newSnapshots.push(outputPath);
-      consecutiveNoData = 0;
-      consecutiveNotFound = 0;
-      consecutiveFailures = 0;
-    } catch (error) {
-      const message = error?.message || String(error);
-      console.log(`${prefix}✗ (${message})`);
-      failedCount++;
+      attemptCount++;
+      const prefix = `  [${attemptCount}] ${dateStr} ${timeStr.slice(0, 2)}:${timeStr.slice(2)}: `;
 
-      const normalizedMessage = message.toLowerCase();
-      const fatalConnectionError =
-        /failed to login|eperm|econnrefused|unauthorized|forbidden|invalid credentials|network unreachable/.test(
-          normalizedMessage,
-        );
-      const looksLikeNoData =
-        /404|no data|no recording|no video data|not found|taking too long|throttling api calls|timed out/.test(
-          normalizedMessage,
-        );
-      const looksLikeNotFound = /404|not found/.test(normalizedMessage);
-
-      if (fatalConnectionError) {
-        throw new Error(
-          `Unable to continue snapshot backfill: ${message}. Aborting.`,
-        );
-      }
-
-      consecutiveFailures += 1;
-      if (looksLikeNoData) {
-        consecutiveNoData += 1;
-      } else {
-        consecutiveNoData = 0;
-      }
-
-      if (looksLikeNotFound) {
-        consecutiveNotFound += 1;
-        if (consecutiveNotFound >= 3) {
+      try {
+        if (!client.isConnected) {
           console.log(
-            "\nEncountered three consecutive 404/not found responses. Stopping backfill.",
+            `${prefix}Connecting to ${config.unifi.host || "UniFi Protect"}...`,
           );
-          break;
         }
-      } else {
+
+        const videoBuffer = await client.exportVideo(
+          camera.id,
+          slot.getTime(),
+          1000,
+        );
+        await client.extractFrameFromVideo(videoBuffer, outputPath);
+        console.log(`${prefix}✓`);
+        capturedCount++;
+        newSnapshots.push(outputPath);
+        dayHadAnyData = true;
+        consecutiveNoData = 0;
         consecutiveNotFound = 0;
+        consecutiveFailures = 0;
+      } catch (error) {
+        const message = error?.message || String(error);
+        console.log(`${prefix}✗ (${message})`);
+        failedCount++;
+
+        const normalizedMessage = message.toLowerCase();
+        const fatalConnectionError =
+          /failed to login|eperm|econnrefused|unauthorized|forbidden|invalid credentials|network unreachable/.test(
+            normalizedMessage,
+          );
+        const looksLikeNoData =
+          /404|no data|no recording|no video data|not found|taking too long|throttling api calls|timed out/.test(
+            normalizedMessage,
+          );
+        const looksLikeNotFound = /404|not found/.test(normalizedMessage);
+
+        if (fatalConnectionError) {
+          throw new Error(
+            `Unable to continue snapshot backfill: ${message}. Aborting.`,
+          );
+        }
+
+        consecutiveFailures += 1;
+        if (looksLikeNoData) {
+          consecutiveNoData += 1;
+        } else {
+          consecutiveNoData = 0;
+        }
+
+        if (looksLikeNotFound) {
+          consecutiveNotFound += 1;
+        } else {
+          consecutiveNotFound = 0;
+        }
+      }
+    }
+
+    // Check stopping conditions at the end of each day
+    if (!dayHadAnyData) {
+      if (consecutiveNotFound >= 3) {
+        console.log(
+          "\nEncountered three consecutive 404/not found responses. Stopping backfill.",
+        );
+        break;
       }
 
       const hitConfiguredNoDataLimit =
@@ -359,7 +407,15 @@ async function fetchMissingSnapshots(config, camera) {
   console.log(`  Already had: ${skippedCount}`);
   console.log(`  Failed: ${failedCount}`);
 
-  return { capturedCount, outputDir, captureHour, captureMinute };
+  // Convert captured time slots to hour/minute objects for timelapse generation
+  const timeSlots = Array.from(capturedTimeSlots)
+    .sort()
+    .map((timeStr) => ({
+      hour: parseInt(timeStr.slice(0, 2), 10),
+      minute: parseInt(timeStr.slice(2, 4), 10),
+    }));
+
+  return { capturedCount, outputDir, timeSlots };
 }
 
 /**
@@ -623,12 +679,17 @@ async function main() {
     console.log(`${"=".repeat(60)}`);
 
     try {
-      const { captureHour, captureMinute } = await fetchMissingSnapshots(
-        config,
-        camera,
-      );
+      const { timeSlots } = await fetchMissingSnapshots(config, camera);
 
-      await generateTimelapse(camera, config, captureHour, captureMinute);
+      // Generate timelapse for each time slot
+      if (timeSlots.length === 0) {
+        console.log("\nNo time slots to process for timelapse generation");
+      } else {
+        console.log(`\nGenerating ${timeSlots.length} timelapse(s)...`);
+        for (const { hour, minute } of timeSlots) {
+          await generateTimelapse(camera, config, hour, minute);
+        }
+      }
 
       results.push({
         camera: camera.name,
