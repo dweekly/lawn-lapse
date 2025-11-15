@@ -498,10 +498,37 @@ async function generateDailyVideo(
 ) {
   const { date, snapshots } = dailyVideo;
 
+  await fs.mkdir(timelapseDir, { recursive: true });
+
+  const outputPath = path.join(timelapseDir, `${date}.mp4`);
+
+  // Check if video cache is still valid
+  try {
+    const videoStats = await fs.stat(outputPath);
+    const videoMtime = videoStats.mtime.getTime();
+
+    // Find the latest snapshot modification time
+    let latestSnapshotMtime = 0;
+    for (const snapshot of snapshots) {
+      const snapshotPath = path.join(snapshotDir, snapshot.filename);
+      const snapshotStats = await fs.stat(snapshotPath);
+      if (snapshotStats.mtime.getTime() > latestSnapshotMtime) {
+        latestSnapshotMtime = snapshotStats.mtime.getTime();
+      }
+    }
+
+    // If video is newer than all snapshots, use cached version
+    if (videoMtime > latestSnapshotMtime) {
+      console.log(`\n✓ Using cached daily video for ${date}`);
+      console.log(`  ${snapshots.length} snapshots (cache is up-to-date)`);
+      return;
+    }
+  } catch (error) {
+    // Video doesn't exist or can't be stat'd, proceed with generation
+  }
+
   console.log(`\nGenerating daily video for ${date}...`);
   console.log(`Found ${snapshots.length} snapshots`);
-
-  await fs.mkdir(timelapseDir, { recursive: true });
 
   // Detect resolution from first snapshot
   const firstSnapshot = path.join(snapshotDir, snapshots[0].filename);
@@ -518,7 +545,6 @@ async function generateDailyVideo(
     maxHeight = 1080;
   }
 
-  const outputPath = path.join(timelapseDir, `${date}.mp4`);
   const fps = camera.video?.fps ?? config.videoDefaults?.fps ?? 24;
   const crf = camera.video?.quality ?? config.videoDefaults?.quality ?? 1;
   const interpolate =
@@ -591,6 +617,78 @@ async function generateDailyVideo(
         );
 
         await fs.unlink(fileListPath).catch(() => {});
+        resolve();
+      }
+    });
+
+    ffmpeg.on("error", reject);
+  });
+}
+
+/**
+ * Concatenates all daily videos into a full timelapse
+ * Uses ffmpeg concat demuxer for fast, lossless concatenation
+ * @async
+ * @param {string} timelapseDir - Directory containing daily videos
+ * @param {Array} dailyVideos - Array of daily video objects with dates
+ * @returns {Promise<void>}
+ */
+async function concatenateDailyVideos(timelapseDir, dailyVideos) {
+  if (dailyVideos.length === 0) {
+    console.log("\nNo daily videos to concatenate");
+    return;
+  }
+
+  console.log(`\nConcatenating ${dailyVideos.length} daily videos...`);
+
+  // Create concat list file
+  const concatListPath = path.join(timelapseDir, "concat-list.txt");
+  const lines = dailyVideos.map((dv) => `file '${dv.date}.mp4'`);
+  await fs.writeFile(concatListPath, lines.join("\n") + "\n");
+
+  // Generate output filename with date range
+  const firstDate = dailyVideos[0].date;
+  const lastDate = dailyVideos[dailyVideos.length - 1].date;
+  const outputPath = path.join(
+    timelapseDir,
+    `full-timelapse_${firstDate}_to_${lastDate}.mp4`,
+  );
+
+  return new Promise((resolve, reject) => {
+    const ffmpegArgs = [
+      "-f",
+      "concat",
+      "-safe",
+      "0",
+      "-i",
+      concatListPath,
+      "-c",
+      "copy", // No re-encoding, just copy streams
+      "-y",
+      outputPath,
+    ];
+
+    if (!isVerbose) {
+      ffmpegArgs.unshift("-loglevel", "error", "-stats");
+    }
+
+    const ffmpeg = spawn("ffmpeg", ffmpegArgs, {
+      stdio: isVerbose ? "inherit" : ["pipe", "pipe", "inherit"],
+    });
+
+    ffmpeg.on("exit", async (code) => {
+      if (code !== 0) {
+        reject(new Error(`ffmpeg concat exited with code ${code}`));
+      } else {
+        const stats = await fs.stat(outputPath);
+        const sizeMB = (stats.size / (1024 * 1024)).toFixed(1);
+
+        console.log(`✓ Full timelapse created: ${outputPath} (${sizeMB}MB)`);
+        console.log(
+          `  ${dailyVideos.length} days from ${firstDate} to ${lastDate}`,
+        );
+
+        await fs.unlink(concatListPath).catch(() => {});
         resolve();
       }
     });
@@ -890,6 +988,9 @@ async function main() {
             config,
           );
         }
+
+        // Concatenate all daily videos into full timelapse
+        await concatenateDailyVideos(timelapseDir, dailyVideos);
       }
 
       // Generate traditional time-based timelapses for single/double-capture days
