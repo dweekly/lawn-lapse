@@ -419,6 +419,187 @@ async function fetchMissingSnapshots(config, camera) {
 }
 
 /**
+ * Analyzes snapshot distribution to determine timelapse generation strategy
+ * Returns object with daily videos (>2 frames/day) and time-based groups (≤2 frames/day)
+ * @async
+ * @param {string} snapshotDir - Directory containing snapshots
+ * @returns {Promise<Object>} Object with dailyVideos array and timeBasedGroups object
+ */
+async function analyzeSnapshotDistribution(snapshotDir) {
+  const files = await fs.readdir(snapshotDir);
+  const snapshots = files.filter((f) => f.endsWith(".jpg"));
+
+  // Group snapshots by date
+  const byDate = new Map();
+  for (const filename of snapshots) {
+    const match = filename.match(/^(\d{4}-\d{2}-\d{2})_(\d{4})\.jpg$/);
+    if (match) {
+      const [, date, time] = match;
+      if (!byDate.has(date)) {
+        byDate.set(date, []);
+      }
+      byDate.get(date).push({ filename, date, time });
+    }
+  }
+
+  // Separate into daily videos (>2 frames) and time-based groups (≤2 frames)
+  const dailyVideos = [];
+  const timeBasedSnapshots = [];
+
+  for (const [date, dateSnapshots] of byDate) {
+    if (dateSnapshots.length > 2) {
+      // Sort by time for chronological daily video
+      dateSnapshots.sort((a, b) => a.time.localeCompare(b.time));
+      dailyVideos.push({ date, snapshots: dateSnapshots });
+    } else {
+      // Add to time-based pool
+      timeBasedSnapshots.push(...dateSnapshots);
+    }
+  }
+
+  // Group time-based snapshots by time slot
+  const timeBasedGroups = new Map();
+  for (const snapshot of timeBasedSnapshots) {
+    if (!timeBasedGroups.has(snapshot.time)) {
+      timeBasedGroups.set(snapshot.time, []);
+    }
+    timeBasedGroups.get(snapshot.time).push(snapshot);
+  }
+
+  // Convert to sorted array
+  const timeGroups = Array.from(timeBasedGroups.entries())
+    .map(([time, snapshots]) => ({
+      time,
+      hour: parseInt(time.slice(0, 2), 10),
+      minute: parseInt(time.slice(2, 4), 10),
+      snapshots: snapshots.sort((a, b) => a.date.localeCompare(b.date)),
+    }))
+    .sort((a, b) => a.time.localeCompare(b.time));
+
+  return { dailyVideos, timeGroups };
+}
+
+/**
+ * Generates a daily video from snapshots taken throughout a single day
+ * @async
+ * @param {Object} dailyVideo - Object with date and snapshots array
+ * @param {string} snapshotDir - Directory containing snapshots
+ * @param {string} timelapseDir - Directory to save timelapse
+ * @param {Object} camera - Camera configuration
+ * @param {Object} config - Full configuration for defaults
+ * @returns {Promise<void>}
+ */
+async function generateDailyVideo(
+  dailyVideo,
+  snapshotDir,
+  timelapseDir,
+  camera,
+  config,
+) {
+  const { date, snapshots } = dailyVideo;
+
+  console.log(`\nGenerating daily video for ${date}...`);
+  console.log(`Found ${snapshots.length} snapshots`);
+
+  await fs.mkdir(timelapseDir, { recursive: true });
+
+  // Detect resolution from first snapshot
+  const firstSnapshot = path.join(snapshotDir, snapshots[0].filename);
+  let maxWidth = 0;
+  let maxHeight = 0;
+
+  try {
+    const dimensions = await getImageDimensions(firstSnapshot);
+    maxWidth = dimensions.width;
+    maxHeight = dimensions.height;
+  } catch (error) {
+    if (isVerbose) console.error(`Error getting dimensions: ${error.message}`);
+    maxWidth = 1920;
+    maxHeight = 1080;
+  }
+
+  const outputPath = path.join(timelapseDir, `${date}.mp4`);
+  const fps = camera.video?.fps ?? config.videoDefaults?.fps ?? 24;
+  const crf = camera.video?.quality ?? config.videoDefaults?.quality ?? 1;
+  const interpolate =
+    camera.video?.interpolate ?? config.videoDefaults?.interpolate ?? true;
+
+  // Create file list for ffconcat demuxer
+  const fileListPath = path.join(snapshotDir, "filelist.txt");
+  const safeFps = fps > 0 ? fps : 1;
+  const frameDuration = 1 / safeFps;
+  const lines = ["ffconcat version 1.0"];
+
+  snapshots.forEach((snapshot, index) => {
+    lines.push(`file '${snapshot.filename}'`);
+    if (index !== snapshots.length - 1) {
+      lines.push(`duration ${frameDuration.toFixed(6)}`);
+    }
+  });
+
+  await fs.writeFile(fileListPath, `${lines.join("\n")}\n`);
+
+  return new Promise((resolve, reject) => {
+    let videoFilter = `scale=${maxWidth}:${maxHeight}:force_original_aspect_ratio=decrease,pad=${maxWidth}:${maxHeight}:(ow-iw)/2:(oh-ih)/2`;
+
+    if (interpolate) {
+      videoFilter = `minterpolate=fps=${safeFps}:mi_mode=mci:mc_mode=aobmc:me_mode=bidir:vsbmc=1,${videoFilter}`;
+    }
+
+    const ffmpegArgs = [
+      "-f",
+      "concat",
+      "-safe",
+      "0",
+      "-i",
+      fileListPath,
+      "-c:v",
+      "libx264",
+      "-preset",
+      "slow",
+      "-crf",
+      String(crf),
+      "-vf",
+      videoFilter,
+      "-r",
+      String(safeFps),
+      "-pix_fmt",
+      "yuv420p",
+      "-y",
+      outputPath,
+    ];
+
+    if (!isVerbose) {
+      ffmpegArgs.unshift("-loglevel", "error", "-stats");
+    }
+
+    const ffmpeg = spawn("ffmpeg", ffmpegArgs, {
+      stdio: isVerbose ? "inherit" : ["pipe", "pipe", "inherit"],
+    });
+
+    ffmpeg.on("exit", async (code) => {
+      if (code !== 0) {
+        reject(new Error(`ffmpeg exited with code ${code}`));
+      } else {
+        const stats = await fs.stat(outputPath);
+        const sizeMB = (stats.size / (1024 * 1024)).toFixed(1);
+
+        console.log(`✓ Daily video created: ${outputPath} (${sizeMB}MB)`);
+        console.log(`  ${snapshots.length} snapshots from ${date}`);
+        console.log(
+          `  Resolution: ${maxWidth}x${maxHeight} @ ${safeFps}fps${interpolate ? " (interpolated)" : ""}`,
+        );
+
+        await fs.unlink(fileListPath).catch(() => {});
+        resolve();
+      }
+    });
+
+    ffmpeg.on("error", reject);
+  });
+}
+
+/**
  * Generates time-lapse video from collected snapshots
  * Automatically detects optimal resolution and creates MP4 video
  * @async
@@ -681,16 +862,48 @@ async function main() {
     console.log(`${"=".repeat(60)}`);
 
     try {
-      const { timeSlots } = await fetchMissingSnapshots(config, camera);
+      await fetchMissingSnapshots(config, camera);
 
-      // Generate timelapse for each time slot
-      if (timeSlots.length === 0) {
-        console.log("\nNo time slots to process for timelapse generation");
-      } else {
-        console.log(`\nGenerating ${timeSlots.length} timelapse(s)...`);
-        for (const { hour, minute } of timeSlots) {
+      // Analyze snapshot distribution to determine generation strategy
+      const snapshotDir =
+        camera.snapshotDir || path.join(__dirname, "snapshots");
+      const timelapseDir =
+        camera.timelapseDir ||
+        path.join(path.dirname(snapshotDir), "timelapses");
+
+      const { dailyVideos, timeGroups } =
+        await analyzeSnapshotDistribution(snapshotDir);
+
+      console.log(
+        `\nAnalysis: ${dailyVideos.length} multi-capture days, ${timeGroups.length} time-based groups`,
+      );
+
+      // Generate daily videos for multi-capture days (>2 frames/day)
+      if (dailyVideos.length > 0) {
+        console.log(`\nGenerating ${dailyVideos.length} daily video(s)...`);
+        for (const dailyVideo of dailyVideos) {
+          await generateDailyVideo(
+            dailyVideo,
+            snapshotDir,
+            timelapseDir,
+            camera,
+            config,
+          );
+        }
+      }
+
+      // Generate traditional time-based timelapses for single/double-capture days
+      if (timeGroups.length > 0) {
+        console.log(
+          `\nGenerating ${timeGroups.length} time-based timelapse(s)...`,
+        );
+        for (const { hour, minute } of timeGroups) {
           await generateTimelapse(camera, config, hour, minute);
         }
+      }
+
+      if (dailyVideos.length === 0 && timeGroups.length === 0) {
+        console.log("\nNo snapshots found for timelapse generation");
       }
 
       results.push({
