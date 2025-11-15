@@ -572,7 +572,9 @@ async function generateTimelapse(camera, config, captureHour, captureMinute) {
         );
 
         // Clean up temporary file list
-        await fs.unlink(fileListPath);
+        await fs.unlink(fileListPath).catch(() => {
+          // Ignore error if file doesn't exist
+        });
         resolve();
       }
     });
