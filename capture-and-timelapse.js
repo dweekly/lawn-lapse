@@ -284,8 +284,13 @@ async function fetchMissingSnapshots(config, camera) {
     try {
       slots = generateDailySlots(targetDate, config.schedule, config.location);
     } catch (error) {
+      // Format date in local timezone for consistency
+      const year = targetDate.getFullYear();
+      const month = String(targetDate.getMonth() + 1).padStart(2, "0");
+      const day = String(targetDate.getDate()).padStart(2, "0");
+      const dateStr = `${year}-${month}-${day}`;
       console.error(
-        `Error generating slots for ${targetDate.toISOString().split("T")[0]}: ${error.message}`,
+        `Error generating slots for ${dateStr}: ${error.message}`,
       );
       continue;
     }
