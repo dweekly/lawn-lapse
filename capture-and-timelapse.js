@@ -301,7 +301,11 @@ async function fetchMissingSnapshots(config, camera) {
 
     // Process each slot for this day
     for (const slot of validSlots) {
-      const dateStr = slot.toISOString().split("T")[0];
+      // Use local timezone consistently for both date and time
+      const year = slot.getFullYear();
+      const month = String(slot.getMonth() + 1).padStart(2, "0");
+      const day = String(slot.getDate()).padStart(2, "0");
+      const dateStr = `${year}-${month}-${day}`;
       const timeStr = `${String(slot.getHours()).padStart(2, "0")}${String(slot.getMinutes()).padStart(2, "0")}`;
       const filename = `${dateStr}_${timeStr}.jpg`;
       const outputPath = path.join(outputDir, filename);
