@@ -302,6 +302,93 @@ async function updateConfig(mutator) {
   return updated;
 }
 
+/**
+ * Migrates legacy snapshots from the old flat ./snapshots/ directory
+ * to the new per-camera directory structure.
+ *
+ * @param {string} legacyDir - Path to old snapshots directory (e.g., ./snapshots in project root)
+ * @param {string} targetCameraId - Camera ID to migrate snapshots to
+ * @param {Object} config - Current configuration object
+ * @returns {Promise<{migrated: number, skipped: number, errors: string[]}>}
+ */
+async function migrateLegacySnapshots(legacyDir, targetCameraId, config) {
+  const result = { migrated: 0, skipped: 0, errors: [] };
+
+  // Find the target camera in config
+  const camera = config.cameras?.find((c) => c.id === targetCameraId);
+  if (!camera) {
+    result.errors.push(`Camera ${targetCameraId} not found in config`);
+    return result;
+  }
+
+  const targetDir = camera.snapshotDir;
+  if (!targetDir) {
+    result.errors.push(`No snapshot directory configured for camera ${camera.name}`);
+    return result;
+  }
+
+  // Ensure target directory exists
+  await fs.mkdir(targetDir, { recursive: true });
+
+  // Get list of jpg files in legacy directory
+  let legacyFiles;
+  try {
+    const files = await fs.readdir(legacyDir);
+    legacyFiles = files.filter((f) => f.endsWith(".jpg"));
+  } catch (error) {
+    if (error.code === "ENOENT") {
+      // No legacy directory, nothing to migrate
+      return result;
+    }
+    result.errors.push(`Error reading legacy directory: ${error.message}`);
+    return result;
+  }
+
+  if (legacyFiles.length === 0) {
+    return result;
+  }
+
+  // Check each file and copy if not present in target
+  for (const file of legacyFiles) {
+    const sourcePath = path.join(legacyDir, file);
+    const targetPath = path.join(targetDir, file);
+
+    try {
+      // Check if file already exists in target
+      try {
+        await fs.access(targetPath);
+        result.skipped++;
+        continue;
+      } catch {
+        // File doesn't exist in target, proceed with copy
+      }
+
+      // Copy the file
+      await fs.copyFile(sourcePath, targetPath);
+      result.migrated++;
+    } catch (error) {
+      result.errors.push(`Error copying ${file}: ${error.message}`);
+    }
+  }
+
+  return result;
+}
+
+/**
+ * Detects if there are legacy snapshots in a directory that should be migrated.
+ *
+ * @param {string} legacyDir - Path to check for legacy snapshots
+ * @returns {Promise<number>} Number of jpg files found
+ */
+async function detectLegacySnapshots(legacyDir) {
+  try {
+    const files = await fs.readdir(legacyDir);
+    return files.filter((f) => f.endsWith(".jpg")).length;
+  } catch {
+    return 0;
+  }
+}
+
 export {
   loadConfig,
   loadConfigIfExists,
@@ -312,4 +399,6 @@ export {
   getBaseDir,
   createDefaultConfig,
   applyDefaults,
+  migrateLegacySnapshots,
+  detectLegacySnapshots,
 };

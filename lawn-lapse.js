@@ -23,6 +23,8 @@ import {
   getBaseDir,
   createDefaultConfig,
   applyDefaults,
+  migrateLegacySnapshots,
+  detectLegacySnapshots,
 } from "./config.js";
 import {
   detectLocation,
@@ -1027,6 +1029,59 @@ Subsequent runs will capture snapshots and update the time-lapse video.
     }
 
     config = await loadConfig();
+
+    // Check for legacy snapshots in the project's ./snapshots/ directory
+    // and migrate them to the new per-camera location
+    const legacySnapshotsDir = path.join(__dirname, "snapshots");
+    const legacyCount = await detectLegacySnapshots(legacySnapshotsDir);
+
+    if (legacyCount > 0 && config.cameras?.length > 0) {
+      // Determine which camera to migrate to
+      let targetCamera = config.cameras[0];
+
+      if (config.cameras.length === 1) {
+        console.log(
+          `📦 Found ${legacyCount} legacy snapshot(s) in ${legacySnapshotsDir}`,
+        );
+        console.log(
+          `   Migrating to ${targetCamera.name} (${targetCamera.snapshotDir})...`,
+        );
+      } else {
+        // Multiple cameras - ask user which one to migrate to
+        const cameraChoices = config.cameras.map((camera) => ({
+          name: camera.name,
+          value: camera.id,
+        }));
+
+        console.log(
+          `\n📦 Found ${legacyCount} legacy snapshot(s) in ${legacySnapshotsDir}`,
+        );
+        const selectedCameraId = await select({
+          message: "Which camera should these snapshots be migrated to?",
+          choices: cameraChoices,
+        });
+
+        targetCamera = config.cameras.find((c) => c.id === selectedCameraId);
+      }
+
+      const result = await migrateLegacySnapshots(
+        legacySnapshotsDir,
+        targetCamera.id,
+        config,
+      );
+
+      if (result.migrated > 0) {
+        console.log(`✅ Migrated ${result.migrated} snapshot(s)`);
+      }
+      if (result.skipped > 0) {
+        console.log(`   Skipped ${result.skipped} (already present)`);
+      }
+      if (result.errors.length > 0) {
+        console.log(`⚠️  Errors: ${result.errors.join(", ")}`);
+      }
+      console.log();
+    }
+
     await runCapture();
   } catch (error) {
     console.error("Error:", error.message);
