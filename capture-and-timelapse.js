@@ -289,9 +289,7 @@ async function fetchMissingSnapshots(config, camera) {
       const month = String(targetDate.getMonth() + 1).padStart(2, "0");
       const day = String(targetDate.getDate()).padStart(2, "0");
       const dateStr = `${year}-${month}-${day}`;
-      console.error(
-        `Error generating slots for ${dateStr}: ${error.message}`,
-      );
+      console.error(`Error generating slots for ${dateStr}: ${error.message}`);
       continue;
     }
 
@@ -532,7 +530,7 @@ async function generateDailyVideo(
       console.log(`  ${snapshots.length} snapshots (cache is up-to-date)`);
       return;
     }
-  } catch (error) {
+  } catch {
     // Video doesn't exist or can't be stat'd, proceed with generation
   }
 

@@ -323,7 +323,9 @@ async function migrateLegacySnapshots(legacyDir, targetCameraId, config) {
 
   const targetDir = camera.snapshotDir;
   if (!targetDir) {
-    result.errors.push(`No snapshot directory configured for camera ${camera.name}`);
+    result.errors.push(
+      `No snapshot directory configured for camera ${camera.name}`,
+    );
     return result;
   }
 
