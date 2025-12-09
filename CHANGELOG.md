@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2025-12-09
+
+### Added
+
+- **Legacy Snapshot Migration**: Automatically detects and migrates snapshots from old single-camera `./snapshots/` directory to new per-camera structure during upgrades
+- **Smart Video Caching**: Per-day video segments are cached and only regenerated when source snapshots change
+- **Video Concatenation**: Full timelapse assembled by concatenating cached daily videos for faster regeneration
+- **Standalone Video Generator**: New `generate-videos-only.js` script for regenerating videos without capturing new snapshots
+
+### Fixed
+
+- **Timezone Bug**: Snapshot filenames now correctly use local timezone instead of UTC
+- **Timezone Bug**: Error messages now display dates in local timezone for consistency
+
+### Technical
+
+- Migration prompts user to select target camera when multiple cameras are configured
+- Daily video cache invalidation based on snapshot modification times
+- ESLint fixes for unused variables in catch blocks
+
 ## [0.3.0] - 2025-11-07
 
 ### Added
@@ -185,6 +205,8 @@ This is the first public release of UniFi Protect Lawn Lapse after refactoring f
 - Gap detection in snapshot sequences
 - Cookie expiration tracking
 
-[Unreleased]: https://github.com/dweekly/lawn-lapse/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/dweekly/lawn-lapse/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/dweekly/lawn-lapse/compare/v0.3.0...v0.4.0
+[0.3.0]: https://github.com/dweekly/lawn-lapse/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/dweekly/lawn-lapse/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/dweekly/lawn-lapse/releases/tag/v0.1.0
