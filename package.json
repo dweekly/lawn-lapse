@@ -1,6 +1,6 @@
 {
   "name": "lawn-lapse",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "Capture daily snapshots from UniFi Protect camera and create time-lapse videos",
   "type": "module",
   "bin": {
@@ -27,5 +27,37 @@
   },
   "engines": {
     "node": ">=18.0.0"
-  }
+  },
+  "license": "MIT",
+  "author": "David Weekly",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dweekly/lawn-lapse.git"
+  },
+  "homepage": "https://dweekly.github.io/lawn-lapse/",
+  "bugs": {
+    "url": "https://github.com/dweekly/lawn-lapse/issues"
+  },
+  "keywords": [
+    "unifi",
+    "protect",
+    "timelapse",
+    "time-lapse",
+    "camera",
+    "automation",
+    "snapshot",
+    "video"
+  ],
+  "files": [
+    "lawn-lapse.js",
+    "capture-and-timelapse.js",
+    "config.js",
+    "scheduling.js",
+    "geolocation.js",
+    "auth.js",
+    "generate-videos-only.js",
+    "scripts/",
+    "README.md",
+    "LICENSE"
+  ]
 }

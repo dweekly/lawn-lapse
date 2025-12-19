@@ -973,6 +973,14 @@ async function main() {
       return;
     }
 
+    if (command === "version" || command === "--version" || command === "-V") {
+      const pkg = JSON.parse(
+        fs.readFileSync(path.join(__dirname, "package.json"), "utf8"),
+      );
+      console.log(`lawn-lapse ${pkg.version}`);
+      return;
+    }
+
     if (command === "help" || command === "--help" || command === "-h") {
       console.log(`
 Lawn Lapse - Capture daily snapshots and create time-lapse videos
@@ -981,6 +989,7 @@ Usage:
   lawn              Run capture (setup if first time)
   lawn status       Show current configuration and statistics
   lawn cron         Set up or update cron job
+  lawn version      Show version number
   lawn help         Show this help message
 
 On first run, lawn will guide you through setup.
