@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.1] - 2025-12-19
+
+### Added
+
+- **Version Command**: New `lawn version` / `--version` / `-V` flag to display current version
+- **npm Metadata**: Added license, author, repository, homepage, bugs, and keywords to package.json
+
+### Changed
+
+- **Smaller Package**: Reduced npm package size from 8.1MB to 31.7KB by adding files whitelist
+- **Dependencies**: Updated @inquirer/prompts to 7.10.1 and unifi-protect to 4.27.5
+
 ## [0.4.0] - 2025-12-09
 
 ### Added
@@ -205,7 +217,8 @@ This is the first public release of UniFi Protect Lawn Lapse after refactoring f
 - Gap detection in snapshot sequences
 - Cookie expiration tracking
 
-[Unreleased]: https://github.com/dweekly/lawn-lapse/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/dweekly/lawn-lapse/compare/v0.4.1...HEAD
+[0.4.1]: https://github.com/dweekly/lawn-lapse/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/dweekly/lawn-lapse/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/dweekly/lawn-lapse/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/dweekly/lawn-lapse/compare/v0.1.0...v0.2.0

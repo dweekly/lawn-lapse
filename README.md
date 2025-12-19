@@ -80,12 +80,13 @@ When run without arguments:
 
 ### Commands
 
-| Command       | Description                               |
-| ------------- | ----------------------------------------- |
-| `lawn`        | Run capture (auto-setup if first time)    |
-| `lawn status` | Show configuration and statistics         |
-| `lawn cron`   | Set up or update automated daily captures |
-| `lawn help`   | Display help information                  |
+| Command        | Description                               |
+| -------------- | ----------------------------------------- |
+| `lawn`         | Run capture (auto-setup if first time)    |
+| `lawn status`  | Show configuration and statistics         |
+| `lawn cron`    | Set up or update automated daily captures |
+| `lawn version` | Show version number                       |
+| `lawn help`    | Display help information                  |
 
 ### Verbose Mode
 
