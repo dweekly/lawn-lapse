@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.2] - 2025-12-19
+
+### Added
+
+- **Expanded Test Suite**: Increased test coverage from 78% to 90% with 65 new tests
+  - Full coverage for scheduling.js (95%) - all scheduling modes tested
+  - Full coverage for config.js (96%) - migration, defaults, and snapshot handling
+  - Coverage for geolocation.js - location formatting and validation
+
+### Changed
+
+- **Dependencies**: Updated @inquirer/prompts to 8.1.0 (major version upgrade)
+
+### Technical
+
+- 77 total tests covering scheduling, config, auth, and geolocation modules
+- Test coverage: 90% lines, 89% branches, 97% functions
+
 ## [0.4.1] - 2025-12-19
 
 ### Added
@@ -217,7 +235,8 @@ This is the first public release of UniFi Protect Lawn Lapse after refactoring f
 - Gap detection in snapshot sequences
 - Cookie expiration tracking
 
-[Unreleased]: https://github.com/dweekly/lawn-lapse/compare/v0.4.1...HEAD
+[Unreleased]: https://github.com/dweekly/lawn-lapse/compare/v0.4.2...HEAD
+[0.4.2]: https://github.com/dweekly/lawn-lapse/compare/v0.4.1...v0.4.2
 [0.4.1]: https://github.com/dweekly/lawn-lapse/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/dweekly/lawn-lapse/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/dweekly/lawn-lapse/compare/v0.2.0...v0.3.0
