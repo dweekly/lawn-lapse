@@ -1,40 +1,22 @@
-#!/bin/bash
-
-# Setup git hooks for the project
-
-HOOK_DIR=".git/hooks"
-SCRIPT_DIR="scripts"
-
-echo "Setting up git hooks..."
-
-# Create pre-push hook
-cat > "$HOOK_DIR/pre-push" << 'EOF'
 #!/bin/sh
-# Pre-push hook to run linting before pushing
+# Installs a pre-push hook that runs the same checks as CI (lint, format, tests).
+# Runs from npm's "prepare" script, which fires on a local `npm install` in a
+# clone but not when lawn-lapse is installed from the registry as a package.
 
-echo "Running pre-push checks..."
+# Not a git checkout (e.g. an unpacked tarball): nothing to install.
+HOOK_DIR=$(git rev-parse --git-path hooks 2>/dev/null) || exit 0
 
-# Run ESLint
-echo "Checking code with ESLint..."
-npx eslint *.js --max-warnings 0
-if [ $? -ne 0 ]; then
-    echo "❌ ESLint check failed. Please fix errors before pushing."
-    exit 1
-fi
-
-# Run Prettier
-echo "Checking formatting with Prettier..."
-npx prettier --check "*.js" "*.json" "*.md"
-if [ $? -ne 0 ]; then
-    echo "❌ Prettier check failed. Run 'npm run format' to fix formatting."
-    exit 1
-fi
-
+mkdir -p "$HOOK_DIR"
+cat > "$HOOK_DIR/pre-push" << 'HOOK'
+#!/bin/sh
+# Pre-push hook installed by scripts/setup-hooks.sh: mirrors the CI checks.
+set -e
+echo "Running pre-push checks (lint, format, tests)..."
+npm run --silent lint:check || { echo "❌ ESLint failed. Run 'npm run lint' to autofix."; exit 1; }
+npm run --silent format:check || { echo "❌ Prettier failed. Run 'npm run format' to fix."; exit 1; }
+npm test --silent > /dev/null || { echo "❌ Tests failed. Run 'npm test' for details."; exit 1; }
 echo "✅ All pre-push checks passed!"
-exit 0
-EOF
+HOOK
 
 chmod +x "$HOOK_DIR/pre-push"
-
-echo "✅ Git hooks installed successfully!"
-echo "The pre-push hook will run linting checks before each push."
+echo "✅ Installed pre-push hook at $HOOK_DIR/pre-push"

@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Node.js 20.12+ required**: `engines` now states the floor the dependencies already required; the old `>=18` claim was never true for `@inquirer/prompts` 8 or `unifi-protect` 4
+- **Clearer login failure**: the error now names the controller address and says the host may be unreachable, not only that the password may be wrong
+- **Dependencies**: `unifi-protect` 4.28.0, `@inquirer/prompts` 8.7.2; `undici` pinned to 7.30.0 through `overrides` to clear high and moderate advisories in the version `unifi-protect` pins; unused `dotenv` removed
+
+### Development
+
+- ESLint and Prettier are now dev dependencies instead of whatever `npx` downloads, with `lint:check` and `format:check` scripts
+- The pre-push hook is installed by `prepare` (clones only, no longer on every install of the published package), works in git worktrees, and also runs the tests
+- CI runs the full test suite on Node 22 and 24, lints every file rather than only the top level, and uses `actions/checkout@v6`
+
 ## [0.4.2] - 2025-12-19
 
 ### Added

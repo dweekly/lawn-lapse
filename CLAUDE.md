@@ -33,10 +33,13 @@ npm run lint
 # Run capture script (via npm)
 npm run capture
 
-# Backfill specific days of historical data
-npm run backfill -- 7   # Backfill last 7 days
-npm run backfill -- 45  # Backfill last 45 days
+# Check lint and formatting without changing files (what CI and the pre-push hook run)
+npm run lint:check
+npm run format:check
 ```
+
+Backfill happens automatically on every capture run: it walks back day by day
+until it runs out of recordings (see `history` in the config schema below).
 
 ### CLI Commands
 
@@ -88,7 +91,7 @@ lawn help             # Display help information
 
 **geolocation.js** - Location detection for sunrise/sunset mode
 
-- Auto-detects location via IP geolocation API (ip-api.com)
+- Auto-detects location via IP geolocation, trying ipapi.co, ip-api.com, then ipinfo.io
 - Provides manual coordinate input fallback
 - Formats location display for user confirmation
 
@@ -120,15 +123,15 @@ lawn help             # Display help information
     {
       "id": "abc123",
       "name": "Front Yard",
-      "snapshotDir": "./snapshots/front-yard",
-      "timelapseDir": "./timelapses/front-yard",
+      "snapshotDir": "~/lawn-lapse/snapshots/front-yard",
+      "timelapseDir": "~/lawn-lapse/videos/front-yard",
       "video": { "fps": 24, "quality": 1, "interpolate": true }
     },
     {
       "id": "def456",
       "name": "Back Yard",
-      "snapshotDir": "./snapshots/back-yard",
-      "timelapseDir": "./timelapses/back-yard",
+      "snapshotDir": "~/lawn-lapse/snapshots/back-yard",
+      "timelapseDir": "~/lawn-lapse/videos/back-yard",
       "video": { "fps": 24, "quality": 1, "interpolate": true }
     }
   ],
@@ -142,27 +145,30 @@ lawn help             # Display help information
 
 ### File Organization
 
+Code (this repo):
+
 ```
 lawn-lapse/
 ├── lawn-lapse.js              # CLI entry point
 ├── capture-and-timelapse.js   # Core capture engine
+├── generate-videos-only.js    # Rebuild videos from existing snapshots, no camera access
 ├── config.js                  # Config management
 ├── scheduling.js              # Schedule generation
 ├── geolocation.js             # Location detection
-├── lawn.config.json           # User configuration (git-ignored)
-├── snapshots/                 # Per-camera snapshot directories
-│   ├── front-yard/            # Slugified camera name subdirs
-│   │   └── YYYY-MM-DD_HHMM.jpg
-│   └── back-yard/
-│       └── YYYY-MM-DD_HHMM.jpg
-├── timelapses/                # Per-camera timelapse directories
-│   ├── front-yard/
-│   │   └── timelapse_HHhMM_DATE_to_DATE.mp4
-│   └── back-yard/
-│       └── timelapse_HHhMM_DATE_to_DATE.mp4
-├── logs/                      # Cron job logs (lawn-lapse.log)
-├── scripts/                   # Setup scripts (cron, hooks)
-└── tests/                     # Test files
+├── auth.js                    # Credential check used by setup
+├── scripts/                   # Setup scripts (cron, git hooks)
+└── tests/                     # node --test suites
+```
+
+User data lives outside the repo, in `~/lawn-lapse/` by default (override with
+`LAWN_LAPSE_CONFIG_DIR`; see `config.js:getBaseDir`):
+
+```
+~/lawn-lapse/
+├── lawn.config.json           # User configuration, including credentials
+├── snapshots/<camera-slug>/   # YYYY-MM-DD_HHMM.jpg, one per capture slot
+├── videos/<camera-slug>/      # timelapse_HHhMM_DATE_to_DATE.mp4
+└── logs/lawn-lapse.log        # Cron job output
 ```
 
 ## Key Implementation Details
@@ -212,19 +218,19 @@ lawn-lapse/
 - Fixed-time mode: Runs at specific time(s) daily
 - Interval/sunrise-sunset: Runs every 15 minutes, checks if capture due
 - PATH includes common binary locations for ffmpeg: `/opt/homebrew/bin:/usr/local/bin`
-- Logs to `<snapshotDir>/lawn-lapse.log`
+- Logs to `~/lawn-lapse/logs/lawn-lapse.log`
 - Removes old lawn-lapse/daily-noon-update.js entries automatically
 
 ### Authentication
 
 - Uses username/password (stored in lawn.config.json)
 - Connection caching to avoid repeated authentication
-- UniFi Protect API via unifi-protect library (v4.27.2+)
+- UniFi Protect API via the unifi-protect library (4.x; its pinned `undici` is overridden in package.json to a patched release)
 
 ## Development Notes
 
 - **ES Modules**: All files use `import`/`export`, not `require()`
-- **Node Version**: Requires Node.js 18+ (specified in package.json engines)
+- **Node Version**: Requires Node.js 20.12+ (package.json engines, set by the dependencies' own floors); CI tests 22 and 24
 - **External Dependencies**: ffmpeg must be installed on system (not npm package)
 - **Testing**: Basic smoke tests with `node --test` and syntax checks with `node --check`
 - **Error Handling**: Stops after 10 consecutive failures to prevent infinite loops
@@ -255,5 +261,5 @@ lawn-lapse/
 
 - **lawn.config.json contains credentials** - Never commit to git (in .gitignore)
 - Credentials stored in plain text - users should secure file permissions
-- No external telemetry or cloud services - all data stays local
+- No telemetry; the only outside call is the optional IP geolocation lookup during setup
 - Uses official UniFi Protect API library with secure HTTPS connections

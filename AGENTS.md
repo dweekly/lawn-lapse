@@ -2,15 +2,15 @@
 
 ## Project Structure & Module Organization
 
-`lawn-lapse.js` is the CLI entry point and orchestrates prompts, camera access, and timelapse assembly. `capture-and-timelapse.js` handles the capture + encode loop when invoked from cron. `config.js` centralizes reads/writes for `lawn.config.json`. Shared utilities and hooks live in `scripts/`, while longform docs and GitHub Pages assets are under `docs/`. Generated media lands in `snapshots/` and `timelapses/`; keep these out of commits unless they illustrate a change. Logs are rotated into `logs/` for debugging sessions.
+`lawn-lapse.js` is the CLI entry point and orchestrates prompts, camera access, and timelapse assembly. `capture-and-timelapse.js` handles the capture + encode loop when invoked from cron. `config.js` centralizes reads/writes for `lawn.config.json`. Shared utilities and hooks live in `scripts/`, while longform docs and GitHub Pages assets are under `docs/`. User data (config, snapshots, videos, logs) lives in `~/lawn-lapse/` by default, outside the repo; keep media out of commits.
 
 ## Build, Test, and Development Commands
 
 - `npm run capture` runs the capture + encode pipeline end to end.
-- `npm run lint` applies ESLint rules (ESM, Node 18+) with autofix.
+- `npm run lint` applies ESLint rules with autofix; `npm run lint:check` and `npm run format:check` check without changing files.
 - `npm run format` runs Prettier across the repo; use before opening a PR.
 - `npm test` runs Node's built-in test runner against `tests/` and still performs syntax checks on the entry points.
-  Install dependencies with `npm install` and verify you are on Node 18.0.0 or later, per `package.json`.
+  Install dependencies with `npm install` and verify you are on Node 20.12 or later, per `package.json`. `npm install` also installs a pre-push hook that runs lint, format and tests.
 
 ## Coding Style & Naming Conventions
 
