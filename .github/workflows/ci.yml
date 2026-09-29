@@ -4,7 +4,6 @@ on:
   push:
     branches: [main]
   pull_request:
-    branches: [main]
 
 jobs:
   lint:
@@ -13,21 +12,21 @@ jobs:
       contents: read
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
-      - name: Use Node.js 20.x
+      - name: Use Node.js 24.x
         uses: actions/setup-node@v6
         with:
-          node-version: 20.x
+          node-version: 24.x
 
       - name: Install dependencies
         run: npm ci
 
       - name: Run ESLint
-        run: npx eslint *.js --max-warnings 0
+        run: npm run lint:check
 
       - name: Run Prettier check
-        run: npx prettier --check "*.js" "*.json" "*.md"
+        run: npm run format:check
 
   test:
     runs-on: ubuntu-latest
@@ -36,10 +35,12 @@ jobs:
 
     strategy:
       matrix:
-        node-version: [20.x, 21.x]
+        # Current Node LTS lines. package.json "engines" states the true floor
+        # (set by the dependencies), which is lower than what CI exercises.
+        node-version: [22.x, 24.x]
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: Use Node.js ${{ matrix.node-version }}
         uses: actions/setup-node@v6
@@ -52,52 +53,21 @@ jobs:
       - name: Check for security vulnerabilities
         run: npm audit --audit-level=moderate
 
-      - name: Validate package.json
-        run: |
-          node -e "const pkg = require('./package.json'); if (!pkg.engines || !pkg.engines.node) throw new Error('Missing node engine requirement');"
+      - name: Run tests
+        run: npm test
 
-      - name: Test module syntax
-        run: |
-          # Just verify the modules have valid syntax, don't actually run them
-          node --check capture-and-timelapse.js
-          node --check lawn-lapse.js
+      - name: Check syntax of every module
+        run: for f in *.js; do node --check "$f"; done
 
-      - name: Test basic imports
+      - name: Check public exports
         run: |
-          # Test that the main module exports the expected functions
           node -e "
-            import('./lawn-lapse.js').then(module => {
-              const required = ['runSetup', 'runCapture', 'runStatus'];
-              const missing = required.filter(fn => !module[fn]);
-              if (missing.length > 0) {
-                throw new Error('Missing exports: ' + missing.join(', '));
-              }
+            Promise.all([import('./lawn-lapse.js'), import('./config.js')]).then(([cli, config]) => {
+              const missing = [
+                ...['runSetup', 'runCapture', 'runStatus'].filter((fn) => !cli[fn]),
+                ...['loadConfig', 'saveConfig', 'updateConfig', 'getConfigPath'].filter((fn) => !config[fn]),
+              ];
+              if (missing.length) throw new Error('Missing exports: ' + missing.join(', '));
               console.log('✓ All expected functions are exported');
-            }).catch(e => {
-              console.error('Failed to import lawn-lapse.js:', e.message);
-              process.exit(1);
-            });
+            }).catch((e) => { console.error(e.message); process.exit(1); });
           "
-          # Test config module exports
-          node -e "
-            import('./config.js').then(module => {
-              const required = ['loadConfig', 'saveConfig', 'updateConfig', 'getConfigPath'];
-              const missing = required.filter(fn => !module[fn]);
-              if (missing.length > 0) {
-                throw new Error('Missing config exports: ' + missing.join(', '));
-              }
-              console.log('✓ All expected config functions are exported');
-            }).catch(e => {
-              console.error('Failed to import config.js:', e.message);
-              process.exit(1);
-            });
-          "
-
-      - name: Test module syntax
-        run: |
-          # Just verify the modules have valid syntax, don't actually run them
-          node --check capture-and-timelapse.js
-          node --check lawn-lapse.js
-          node --check config.js
-          node --check scheduling.js
-          node --check geolocation.js

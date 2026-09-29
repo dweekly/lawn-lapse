@@ -36,7 +36,7 @@ Watch your lawn, garden, construction project, or any outdoor space transform ov
 
 ## 📋 Prerequisites
 
-- **Node.js 18+** (required for modern JavaScript features)
+- **Node.js 20.12+**
 - **ffmpeg** installed (`brew install ffmpeg` on macOS, `apt install ffmpeg` on Linux)
 - **UniFi Protect** system with at least one camera
 - Admin access to UniFi Protect
@@ -178,22 +178,23 @@ Settings are stored in `lawn.config.json`:
 
 ### File Organization
 
+Everything lives in `~/lawn-lapse/` by default (set `LAWN_LAPSE_CONFIG_DIR` to move it):
+
 ```
-lawn-lapse/
+~/lawn-lapse/
+├── lawn.config.json        # Configuration, including your UniFi credentials
 ├── snapshots/              # Per-camera snapshot directories
 │   ├── front-yard/
 │   │   ├── 2024-01-01_1200.jpg
 │   │   ├── 2024-01-02_1200.jpg
 │   │   └── ...
 │   └── back-yard/
-│       ├── 2024-01-01_1200.jpg
 │       └── ...
-├── timelapses/             # Per-camera timelapse directories
+├── videos/                 # Per-camera timelapse directories
 │   ├── front-yard/
 │   │   └── timelapse_12h00_2024-01-01_to_2024-03-15.mp4
 │   └── back-yard/
 │       └── timelapse_12h00_2024-01-01_to_2024-03-15.mp4
-├── lawn.config.json        # Project configuration
 └── logs/lawn-lapse.log     # Cron job logs
 ```
 
@@ -313,6 +314,17 @@ npm run format
 npm run lint
 ```
 
+`npm install` in a clone also installs a pre-push git hook that runs lint, the Prettier check and the tests, the same checks CI runs.
+
+### Project Documents
+
+- [CHANGELOG.md](CHANGELOG.md): user-facing changes per release (fresh as of 2026-09-25)
+- [ROADMAP.md](ROADMAP.md): stack-ranked next steps (fresh as of 2026-09-25)
+- [API.md](API.md): programmatic API reference (fresh as of 2025-11-05, not re-verified)
+- [CONTRIBUTING.md](CONTRIBUTING.md): how to report issues and submit changes (fresh as of 2025-09-18, not re-verified)
+- [AGENTS.md](AGENTS.md) and [CLAUDE.md](CLAUDE.md): orientation for coding agents (fresh as of 2026-09-25)
+- [SECURITY.md](SECURITY.md), [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md): project policies
+
 ## 📝 API Documentation
 
 ### Main Functions
@@ -336,8 +348,8 @@ See [API.md](API.md) for detailed documentation.
 - Credentials are stored locally in `lawn.config.json`
 - Never commit `lawn.config.json` to version control
 - Uses UniFi Protect's official API library
-- No external services or telemetry
-- All data stays on your local machine
+- No telemetry. The only outside call is during setup for sunrise/sunset mode, which looks up your approximate location from your IP address (ipapi.co, ip-api.com or ipinfo.io); you can enter coordinates by hand instead
+- Snapshots and videos stay on your local machine
 
 ## 📜 License
 

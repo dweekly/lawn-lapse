@@ -68,7 +68,12 @@ class UniFiProtectClient {
     );
 
     if (!success) {
-      throw new Error("Failed to login to UniFi Protect");
+      // login() returns false both for bad credentials and for an unreachable
+      // host (the library logs the underlying cause, e.g. "Connection timed
+      // out", just above this line), so name both possibilities.
+      throw new Error(
+        `Failed to log in to UniFi Protect at ${this.host}: check that the host is reachable and the credentials in lawn.config.json are correct`,
+      );
     }
 
     this.isConnected = true;

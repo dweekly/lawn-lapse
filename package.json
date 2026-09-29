@@ -16,17 +16,25 @@
     "setup:cron": "sh scripts/setup-cron.sh",
     "format": "prettier --write .",
     "lint": "eslint . --fix",
-    "test": "node --test && node --check lawn-lapse.js && node --check capture-and-timelapse.js && echo '✓ Tests passed'",
-    "postinstall": "sh scripts/setup-hooks.sh 2>/dev/null || true"
+    "test": "node --test && node --check lawn-lapse.js && node --check capture-and-timelapse.js && echo '\u2713 Tests passed'",
+    "lint:check": "eslint . --max-warnings 0",
+    "format:check": "prettier --check .",
+    "prepare": "sh scripts/setup-hooks.sh"
   },
   "dependencies": {
     "@inquirer/prompts": "^8.1.0",
-    "dotenv": "^17.2.2",
     "suncalc": "^1.9.0",
     "unifi-protect": "^4.27.2"
   },
+  "devDependencies": {
+    "eslint": "^10.11.0",
+    "prettier": "^3.9.9"
+  },
+  "overrides": {
+    "undici": "^7.30.0"
+  },
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=20.12.0"
   },
   "license": "MIT",
   "author": "David Weekly",
