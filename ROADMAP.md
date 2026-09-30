@@ -6,9 +6,15 @@ Stack-ranked: the top item is next. Shipped work is recorded in [CHANGELOG.md](C
 
 A capture that cannot reach the controller exits non-zero and logs the reason, but nobody reads the cron log. A daily job that has failed for several days in a row should notify the owner (email, Pushover, or a webhook behind one small adapter interface), and `lawn status` should lead with "last successful capture: N days ago" whenever that number exceeds one capture interval. The NVR keeps only a couple of weeks of footage, so every day a failure goes unnoticed past that window is a frame lost for good.
 
+Success has to mean the scheduled frame was saved. Today a run whose newest slot fails (controller timeout, "No video data received") still reports `Successful: 1/1` and exits 0, because the camera is counted as successful once its videos are built. Count missed slots per camera, report them in the summary, and exit non-zero when the most recent due slot is missing.
+
 ## Prune superseded timelapse renders
 
 Each run writes a new `timelapse_HHhMM_<first>_to_<last>.mp4` for the full range and never deletes the previous one, so a single camera's `videos/` directory grows by about 1 GB a day, almost all of it redundant. Keep the newest render per capture time (and optionally the newest N), delete the rest, and say what was removed in the run output. Also check why `full-timelapse_*` files carry an end date months behind the newest snapshot.
+
+## Skip rebuilding videos whose inputs have not changed
+
+A daily run takes about 30 minutes, almost all of it re-encoding `full-timelapse_*` (about 14 GB) from per-day clips that have not changed in months, then re-rendering the full noon timelapse even when no new snapshot arrived. Rebuild a video only when its input list (file names and modification times) differs from the one it was built from, recorded beside the output. That should bring a normal run down to a couple of minutes.
 
 ## Rotate the cron log
 
