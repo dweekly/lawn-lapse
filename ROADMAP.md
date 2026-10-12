@@ -36,6 +36,10 @@ With only two snapshots, timelapse generation writes a 261-byte MP4 with no fram
 
 The controller answers 404 for a time with no recording, and unifi-protect retries that status five times before giving up, so each slot past the end of retention costs about 3.5 seconds. Backfill stops after three, so this is about 10 seconds a run.
 
+## Patched undici for npm installs
+
+`unifi-protect` 5.3.1 pins `undici` 8.10.0, which has open advisories. The `overrides` entry in package.json fixes that for a cloned checkout, but npm ignores a dependency's `overrides`, so `npm install -g lawn-lapse` still gets 8.10.0. Bump `unifi-protect` once it pins a patched release (or ask upstream to), then drop the override.
+
 ## `lawn doctor`
 
 Check Node, ffmpeg, cron, controller reachability and credentials in one command, with platform-specific fixes for whatever is missing.
