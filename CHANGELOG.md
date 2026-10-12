@@ -7,11 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-10-12
+
 ### Changed
 
 - **Node.js 22.20+ required**: the floor of `unifi-protect` 5 (the old `>=18` claim was never true even for `@inquirer/prompts` 8 or `unifi-protect` 4)
 - **Clearer login failure**: the error now names the controller address and says the host may be unreachable, not only that the password may be wrong
-- **Dependencies**: `unifi-protect` 5.3.1 (a rewrite of its API: setup and capture now use `ProtectClient`), `suncalc` 2.1.1, `@inquirer/prompts` 8.7.2; `undici` raised to 8.11.2 through `overrides` to clear the advisories in the version `unifi-protect` pins; unused `dotenv` removed
+- **Dependencies**: `unifi-protect` 5.3.1 (a rewrite of its API: setup and capture now use `ProtectClient`), `suncalc` 2.1.1, `@inquirer/prompts` 8.7.2; `undici` raised to 8.11.2 through `overrides` in a cloned checkout (npm does not apply a dependency's `overrides`, so an `npm install -g` still gets the 8.10.0 that `unifi-protect` pins until it updates); unused `dotenv` removed
 - **Sunrise/sunset times**: `suncalc` 2 is more precise, so sunrise-mode capture times can shift by up to about three minutes from earlier runs
 - **Unreachable controller**: a capture run now gives up on a camera at the first failed login instead of after three failed slots
 
@@ -19,7 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - ESLint and Prettier are now dev dependencies instead of whatever `npx` downloads, with `lint:check` and `format:check` scripts
 - The pre-push hook is installed by `prepare` (clones only, no longer on every install of the published package), works in git worktrees, and also runs the tests
-- CI runs the full test suite on Node 22 and 24, lints every file rather than only the top level, and uses `actions/checkout@v6`
+- CI runs the full test suite on Node 22 and 24, lints every file rather than only the top level, and uses `actions/checkout` and `actions/setup-node` v7
 
 ## [0.4.2] - 2025-12-19
 
@@ -249,7 +251,8 @@ This is the first public release of UniFi Protect Lawn Lapse after refactoring f
 - Gap detection in snapshot sequences
 - Cookie expiration tracking
 
-[Unreleased]: https://github.com/dweekly/lawn-lapse/compare/v0.4.2...HEAD
+[Unreleased]: https://github.com/dweekly/lawn-lapse/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/dweekly/lawn-lapse/compare/v0.4.2...v0.5.0
 [0.4.2]: https://github.com/dweekly/lawn-lapse/compare/v0.4.1...v0.4.2
 [0.4.1]: https://github.com/dweekly/lawn-lapse/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/dweekly/lawn-lapse/compare/v0.3.0...v0.4.0
