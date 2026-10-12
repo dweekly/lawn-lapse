@@ -1,81 +1,57 @@
-import { ProtectApi } from "unifi-protect";
+import {
+  ProtectClient,
+  ProtectAuthError,
+  ProtectAuthorizationError,
+  ProtectNetworkError,
+  ProtectTimeoutError,
+} from "unifi-protect";
 
 /**
- * Test authentication credentials against UniFi Protect controller
+ * Connect to a UniFi Protect controller, which logs in and fetches the camera list
  * @param {string} host - Controller hostname or IP
  * @param {string} username - Username
  * @param {string} password - Password
- * @returns {Promise<{success: boolean, error?: string, protect?: ProtectApi}>}
+ * @returns {Promise<{success: boolean, error?: string, detail?: string, protect?: ProtectClient}>}
+ *   On success, `protect` is a connected client the caller must close with
+ *   `protect[Symbol.asyncDispose]()`. On failure, `error` is a category for
+ *   getErrorMessage and `detail` is the library's own message.
  */
 export async function testAuthentication(host, username, password) {
-  const protect = new ProtectApi();
-
-  // Capture API errors during authentication
-  const originalConsoleError = console.error;
-  const errorLogs = [];
-  console.error = (...args) => {
-    errorLogs.push(args.join(" "));
-  };
-
   try {
-    await protect.login(host, username, password);
+    const protect = await ProtectClient.connect({
+      host,
+      username,
+      password,
+      refreshIntervalMs: false,
+    });
+    return { success: true, protect };
   } catch (error) {
-    console.error = originalConsoleError;
     return {
       success: false,
-      error: categorizeError(error.message, errorLogs),
-    };
-  } finally {
-    console.error = originalConsoleError;
-  }
-
-  // Check if any errors were logged during login
-  if (errorLogs.length > 0) {
-    return {
-      success: false,
-      error: categorizeError(errorLogs.join(" "), errorLogs),
+      error: categorizeError(error),
+      detail: error.message,
     };
   }
-
-  return {
-    success: true,
-    protect,
-  };
 }
 
 /**
- * Categorize authentication errors into user-friendly messages
- * @param {string} errorText - Error message or logs
- * @param {string[]} errorLogs - Array of captured error logs
+ * Categorize a connection failure from the unifi-protect library
+ * @param {Error} error - Error thrown by ProtectClient.connect
  * @returns {string} - Categorized error type
  */
-function categorizeError(errorText, errorLogs = []) {
-  const allErrors = [errorText, ...errorLogs].join(" ");
-
-  if (
-    allErrors.includes("ENOTFOUND") ||
-    allErrors.includes("ECONNREFUSED") ||
-    allErrors.includes("ETIMEDOUT")
-  ) {
-    return "CONNECTION_FAILED";
-  }
-
-  if (allErrors.includes("Insufficient privileges")) {
+export function categorizeError(error) {
+  if (error instanceof ProtectAuthorizationError) {
     return "INSUFFICIENT_PRIVILEGES";
   }
-
-  if (
-    allErrors.includes("Invalid credentials") ||
-    allErrors.includes("Unauthorized") ||
-    allErrors.includes("401")
-  ) {
+  if (error instanceof ProtectAuthError) {
     return "INVALID_CREDENTIALS";
   }
-
-  if (allErrors.includes("timeout")) {
+  if (error instanceof ProtectTimeoutError) {
     return "TIMEOUT";
   }
-
+  if (error instanceof ProtectNetworkError) {
+    return "CONNECTION_FAILED";
+  }
   return "UNKNOWN";
 }
 
@@ -83,9 +59,10 @@ function categorizeError(errorText, errorLogs = []) {
  * Get user-friendly error message for error type
  * @param {string} errorType - Error type from categorizeError
  * @param {string} host - Controller hostname/IP for context
+ * @param {string} [detail] - The library's own message, shown for UNKNOWN
  * @returns {string} - User-friendly error message
  */
-export function getErrorMessage(errorType, host) {
+export function getErrorMessage(errorType, host, detail) {
   switch (errorType) {
     case "CONNECTION_FAILED":
       return `Unable to connect to ${host}. Please check the hostname/IP address and ensure the UniFi Protect controller is running and accessible.`;
@@ -96,6 +73,8 @@ export function getErrorMessage(errorType, host) {
     case "TIMEOUT":
       return `Connection timeout. Please check your network connection and ensure ${host} is accessible.`;
     default:
-      return `Authentication failed. Please check your credentials and try again.`;
+      return detail
+        ? `Authentication failed: ${detail}`
+        : `Authentication failed. Please check your credentials and try again.`;
   }
 }

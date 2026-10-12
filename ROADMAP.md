@@ -24,9 +24,17 @@ A daily run takes about 30 minutes, almost all of it re-encoding `full-timelapse
 
 When login fails, report the host that was tried and, if the machine's default gateway has changed since setup, suggest it as the likely new controller address. Offer a way to change only the host without redoing camera selection.
 
-## Upgrade major dependencies
+## Keep sunrise-mode snapshots stable across library updates
 
-`unifi-protect` 5.x (requires Node 22.20+ and moves to undici 8, which would also retire the `undici` entry under `overrides` in package.json) and `suncalc` 2.x. Both need a live capture test against a real controller, not only the unit suite.
+Sunrise and sunset slots are named by their computed HHMM, so any change in the sun calculation renames them. The suncalc 2 upgrade moved them by up to three minutes, which makes backfill fetch a second frame for every past day still on the NVR. Match an existing snapshot from the same day within a few minutes of the slot before fetching.
+
+## Don't report an empty video as created
+
+With only two snapshots, timelapse generation writes a 261-byte MP4 with no frames and still prints "Time-lapse created" (seen on main and after the unifi-protect 5 port). Check the frame count or output size and say there are too few snapshots instead.
+
+## Faster end of history
+
+The controller answers 404 for a time with no recording, and unifi-protect retries that status five times before giving up, so each slot past the end of retention costs about 3.5 seconds. Backfill stops after three, so this is about 10 seconds a run.
 
 ## `lawn doctor`
 

@@ -8,7 +8,7 @@
  * @license MIT
  */
 
-import { ProtectApi } from "unifi-protect";
+import { ProtectClient } from "unifi-protect";
 import fs from "fs/promises";
 import { spawn } from "child_process";
 import path from "path";
@@ -43,7 +43,7 @@ class UniFiProtectClient {
    * @constructor
    */
   constructor(config) {
-    this.protect = new ProtectApi();
+    this.protect = null;
     this.host = config.unifi.host;
     this.username = config.unifi.username || "admin";
     this.password = config.unifi.password;
@@ -61,18 +61,17 @@ class UniFiProtectClient {
     // Skip if already connected
     if (this.isConnected) return true;
 
-    const success = await this.protect.login(
-      this.host,
-      this.username,
-      this.password,
-    );
-
-    if (!success) {
-      // login() returns false both for bad credentials and for an unreachable
-      // host (the library logs the underlying cause, e.g. "Connection timed
-      // out", just above this line), so name both possibilities.
+    try {
+      this.protect = await ProtectClient.connect({
+        host: this.host,
+        username: this.username,
+        password: this.password,
+        refreshIntervalMs: false,
+      });
+    } catch (error) {
+      // "Failed to login" is one of the phrases the backfill loop treats as fatal
       throw new Error(
-        `Failed to log in to UniFi Protect at ${this.host}: check that the host is reachable and the credentials in lawn.config.json are correct`,
+        `Failed to login to UniFi Protect at ${this.host}: ${error.message.replace(/\.$/, "")}`,
       );
     }
 
@@ -98,24 +97,42 @@ class UniFiProtectClient {
     // Build full URL - required for the library to work correctly
     const url = `https://${this.host}/proxy/protect/api/video/export?camera=${cameraId}&start=${startMs}&end=${endMs}`;
 
-    const response = await this.protect.retrieve(url, {
-      method: "GET",
-      headers: {
-        Accept: "video/mp4",
-      },
-    });
+    let response;
+    try {
+      response = await this.protect.transport.send(url, {
+        headers: {
+          Accept: "video/mp4",
+        },
+      });
+    } catch (error) {
+      // The controller answers 404 when nothing was recorded at that time. The
+      // library retries that status before giving up, so it arrives here as a
+      // network error with the 404 on its cause.
+      if (error.cause?.statusCode === 404) {
+        throw new Error("No recording found (404)");
+      }
+      throw error;
+    }
 
-    if (!response || !response.body) {
+    response.ensureOk();
+    if (response.body.length === 0) {
       throw new Error("No video data received");
     }
 
-    // Read the stream into a buffer
-    const chunks = [];
-    for await (const chunk of response.body) {
-      chunks.push(chunk);
-    }
+    return response.body;
+  }
 
-    return Buffer.concat(chunks);
+  /**
+   * Closes the connection to UniFi Protect, including its realtime events
+   * socket, so the process can exit
+   * @async
+   * @returns {Promise<void>}
+   */
+  async close() {
+    if (!this.protect) return;
+    await this.protect[Symbol.asyncDispose]();
+    this.protect = null;
+    this.isConnected = false;
   }
 
   /**
@@ -185,6 +202,23 @@ class UniFiProtectClient {
  * @returns {Promise<Object>} Capture statistics.
  */
 async function fetchMissingSnapshots(config, camera) {
+  const client = new UniFiProtectClient(config);
+  try {
+    return await backfillSnapshots(config, camera, client);
+  } finally {
+    await client.close();
+  }
+}
+
+/**
+ * Walks back day by day, fetching each missing capture slot from recordings.
+ * @async
+ * @param {Object} config - Loaded application configuration.
+ * @param {Object} camera - The camera configuration to process.
+ * @param {UniFiProtectClient} client - Client to fetch recordings with.
+ * @returns {Promise<Object>} Capture statistics.
+ */
+async function backfillSnapshots(config, camera, client) {
   const now = new Date();
 
   console.log(`[${now.toISOString()}] Starting snapshot capture...`);
@@ -202,7 +236,6 @@ async function fetchMissingSnapshots(config, camera) {
     process.exit(1);
   }
 
-  const client = new UniFiProtectClient(config);
   const cameraName = camera.name || "Unknown Camera";
   const outputDir = camera.snapshotDir || path.join(__dirname, "snapshots");
 

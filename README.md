@@ -36,7 +36,7 @@ Watch your lawn, garden, construction project, or any outdoor space transform ov
 
 ## 📋 Prerequisites
 
-- **Node.js 20.12+**
+- **Node.js 22.20+**
 - **ffmpeg** installed (`brew install ffmpeg` on macOS, `apt install ffmpeg` on Linux)
 - **UniFi Protect** system with at least one camera
 - Admin access to UniFi Protect
