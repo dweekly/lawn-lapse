@@ -6,7 +6,7 @@
  * @license MIT
  */
 
-import SunCalc from "suncalc";
+import * as SunCalc from "suncalc";
 
 /**
  * Generates capture slots for a given day based on schedule configuration

@@ -225,12 +225,12 @@ User data lives outside the repo, in `~/lawn-lapse/` by default (override with
 
 - Uses username/password (stored in lawn.config.json)
 - Connection caching to avoid repeated authentication
-- UniFi Protect API via the unifi-protect library (4.x; its pinned `undici` is overridden in package.json to a patched release)
+- UniFi Protect API via the unifi-protect library (5.x, via `ProtectClient`; its pinned `undici` is overridden in package.json to a patched release)
 
 ## Development Notes
 
 - **ES Modules**: All files use `import`/`export`, not `require()`
-- **Node Version**: Requires Node.js 20.12+ (package.json engines, set by the dependencies' own floors); CI tests 22 and 24
+- **Node Version**: Requires Node.js 22.20+ (package.json engines, set by unifi-protect 5's floor); CI tests 22 and 24
 - **External Dependencies**: ffmpeg must be installed on system (not npm package)
 - **Testing**: Basic smoke tests with `node --test` and syntax checks with `node --check`
 - **Error Handling**: Stops after 10 consecutive failures to prevent infinite loops
