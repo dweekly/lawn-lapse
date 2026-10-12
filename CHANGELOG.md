@@ -9,9 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- **Node.js 20.12+ required**: `engines` now states the floor the dependencies already required; the old `>=18` claim was never true for `@inquirer/prompts` 8 or `unifi-protect` 4
+- **Node.js 22.20+ required**: the floor of `unifi-protect` 5 (the old `>=18` claim was never true even for `@inquirer/prompts` 8 or `unifi-protect` 4)
 - **Clearer login failure**: the error now names the controller address and says the host may be unreachable, not only that the password may be wrong
-- **Dependencies**: `unifi-protect` 4.28.0, `@inquirer/prompts` 8.7.2; `undici` pinned to 7.30.0 through `overrides` to clear high and moderate advisories in the version `unifi-protect` pins; unused `dotenv` removed
+- **Dependencies**: `unifi-protect` 5.3.1 (a rewrite of its API: setup and capture now use `ProtectClient`), `suncalc` 2.1.1, `@inquirer/prompts` 8.7.2; `undici` raised to 8.11.2 through `overrides` to clear the advisories in the version `unifi-protect` pins; unused `dotenv` removed
+- **Sunrise/sunset times**: `suncalc` 2 is more precise, so sunrise-mode capture times can shift by up to about three minutes from earlier runs
+- **Unreachable controller**: a capture run now gives up on a camera at the first failed login instead of after three failed slots
 
 ### Development
 
