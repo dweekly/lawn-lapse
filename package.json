@@ -31,7 +31,7 @@
     "prettier": "^3.9.9"
   },
   "overrides": {
-    "undici": "^8.11.2"
+    "undici": "^8.12.3"
   },
   "engines": {
     "node": ">=22.20.0"
